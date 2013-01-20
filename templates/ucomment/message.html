@@ -1,0 +1,81 @@
+{%load ucomment_tags bandcochon_tags %}
+{% ucomment_init %}
+{% if comment.moderate %}
+<div class="message-block" style="background-color: #FFA7F0">
+    <div style="padding: 5px; font-weight: bold;">Message en attente de modération</div>
+</div>
+{% else %}
+{% if not comment.is_message %}
+<a name="{{ comment.pk }}"></a>
+<div class="message-block" data-rel="{{comment.pk}}">
+    <div class="message-title">
+           <div class="left">
+            <strong>{% if comment.user %}{{ comment.user }}{% else %}{{ comment.external_user }}{% endif %}</strong>{% if not comment.user %} <em>(provenant d'un Kozeman a nou)</em>{% endif %} a écrit le {{comment.submission_date|date:"d F Y"}} 
+        </div>
+        {% include 'ucomment/agree.inc.html' %}
+        <div class="clear"></div>
+    </div>
+    <div class="clear right">
+        {% if not user.is_anonymous %}
+            {% if ucomment.can_vote %}
+                <a data-rel="{{comment.pk}}" href="/ucomment/moderate/" class="link moderate-comment" data-user="{% if user.is_staff %}true{% else %}false{% endif %}">
+            {% endif %}
+            {% if user.is_staff %}
+                Modérer ce commentaire
+            {% else  %}
+                {% if comment.user != user %}
+                    {% ucomment_signaled comment user 'Déjà signalé' 'Signaler un abus' %}
+                {% endif %}
+            {% endif %}
+                </a>
+        {% endif %}
+    </div>
+    
+    <div class="message-content">
+        {% if comment.user %}
+            {% include "ucomment/userprofile.inc.html" %}
+        {% else %}
+            <img src="{{STATIC_URL}}images/default_avatar.png" width="48" />
+        {% endif %}
+        <div class="comment-body" data-rel="{{comment.pk}}">
+            {{ comment.content|safe|linebreaksbr }}
+        </div>
+    </div>
+    <div>&nbsp;</div>
+    <div class="message-response clear" data-rel="{{comment.pk}}">
+        {% for subcomment in comment.get_response %}
+            {% include "ucomment/submessage.html" %}
+        {% endfor %}
+    </div>
+    {%if user.is_authenticated%}
+    <div class="clear right">
+        <button class="repondre" data-rel="{{comment.pk}}">Répondre</button>
+    </div>
+    <div class="clear"></div>
+    <div class="wait wait-response" data-rel="{{comment.pk}}"></div>
+    <div class="comment-response" style="display: none; padding: 10px;" data-rel="{{comment.pk}}">
+        <textarea data-rel="{{comment.pk}}" style="width:95%;" data-wall='<img src="{{ user.get_profile.avatar_or_default }}" class="pitipiti" /> {{ user.username }} vient de commenter le message de {{ comment.user.username }}' ></textarea>
+        <div>
+            <button class="send-response" data-rel="{{comment.pk}}">Envoyer</button>
+        </div>
+    </div>
+    {% else %}
+    <div>&nbsp;</div>
+    {%endif%}
+    <div class="clear"></div>
+</div>
+{% else %}
+<a name="{{ comment.pk }}"></a>
+<div class="info-block">
+        <div class="left">
+            {{ comment.content|safe }}
+        </div>
+        {% if comment.message_url %}
+        <div class="right">
+            <a href="{{ comment.message_url }}" class="link">Voir</a>
+        </div>
+        {% endif %}
+    <div class="clear"></div>
+</div>
+{% endif %}
+{% endif %}

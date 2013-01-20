@@ -1,0 +1,12 @@
+	    {% for comment in commentaries %} 
+	    	{% include 'ucomment/message.html' %}
+	    {% endfor %}
+		<div class="next-comments">
+			<div class="wait wait-comments"></div>
+			{% if ucomment.total_count >= commentaries|length %}
+			<div style="margin-left: 10px">
+				<button class="next-group">Voir la suite</button>
+			</div>
+			{% endif %}
+		</div>
+	</div>
