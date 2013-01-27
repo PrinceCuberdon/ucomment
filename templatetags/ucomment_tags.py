@@ -20,10 +20,13 @@
 
 from django import template
 from django.db.models import connection
+from django.conf import settings
 
 from ucomment.models import Comment
 
 register = template.Library()
+
+START_SITE_MEDIA = len(settings.MEDIA_URL)
 
 @register.filter
 def comment_count(value):
@@ -38,3 +41,11 @@ def get_total_comments_count(user):
     cursor.execute("SELECT COUNT(id) FROM ucomment_comment WHERE user_id='%d'" % user.id)
     return cursor.fetchone()[0]
 
+
+@register.filter
+def ensure_site_media(value):
+    """ Here for historical reason. Old avatar path are located with "avatar/IMAGE"
+    not "/site_media/avatar/IMAGE" """
+    if value[:START_SITE_MEDIA] != settings.MEDIA_URL:
+        return settings.MEDIA_URL + value
+    return value

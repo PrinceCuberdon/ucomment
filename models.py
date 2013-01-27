@@ -25,9 +25,14 @@ from django.contrib.auth.models import User as AuthUser
 from django.template.defaultfilters import linebreaksbr, striptags
 from django.conf import settings
 
+import memcache
+
+# Only on client instance  
+_client = memcache.Client((settings.CACHES['default']['LOCATION'],))
+
 from common import convert_date
 
-class CommentPrefManager(models.Model):
+class CommentPrefManager(models.Manager):
     def get_pref(self):
         """ Return preferences for Comment. Create with default values if not exists """
         try:
@@ -109,6 +114,10 @@ class CommentManager(models.Manager):
     def serialize(self, url):
         """ Serialize commentaries and responses for a particular URL.
         mainly used for json formated communication """
+        data = _client.get('serialize:%s' % url)
+        if data is not None:
+            return data
+        
         r = []
         for com in list(Comment.objects.filter(url=url, visible=True, trash=False, parent=None)):
             c = {
@@ -118,6 +127,9 @@ class CommentManager(models.Manager):
             for resp in list(Comment.objects.filter(visible=True, trash=False, parent=com)):
                 c['response'].append(resp._get_info())
             r.append(c)
+            
+        _client.set("serialize:%s" % url, r)
+        
         return r
 
 class Comment(models.Model):
@@ -216,7 +228,13 @@ class Comment(models.Model):
         return self.parent.get_absolute_url()
     
     def get_response(self):
-        return list(Comment.objects.filter(visible=True, trash=False, parent=self).order_by('submission_date'))
+        data = _client.get('comment:get_response:%s' % self.pk)
+        if data is not None:
+            return data
+        
+        data = list(Comment.objects.filter(visible=True, trash=False, parent=self).order_by('submission_date'))
+        _client.set('comment:get_response:%s' % self.pk, data)
+        return data
         
     def can_set_abuse(self, user):
         """ Return True if the use is not the Comment__user owner or the 
@@ -234,10 +252,22 @@ class Comment(models.Model):
     get_abuse_count.short_description = "Nombre d'abus"
 
     def get_agreeiers(self):
-        return list(LikeDislike.objects.filter(comment=self, like=True, dislike=False).only('user'))
+        data = _client.get('comment:get_agreeiers:%s' % self.pk)
+        if data is not None:
+            return data
+        
+        data = list(LikeDislike.objects.filter(comment=self, like=True, dislike=False).only('user'))
+        _client.set('comment:get_agreeiers:%s' % self.pk, data)
+        return data
 
     def get_disagreeiers(self):
-        return list(LikeDislike.objects.filter(comment=self, like=False, dislike=True).only('user'))
+        data = _client.get('comment:get_disagreeiers:%s' % self.pk)
+        if data is not None:
+            return data
+        
+        data = list(LikeDislike.objects.filter(comment=self, like=False, dislike=True).only('user'))
+        _client.set('comment:get_disagreeiers:%s' % self.pk, data)
+        return data
 
     def _get_info(self):
         """ return the row as a dictionnary """
@@ -249,24 +279,3 @@ class Comment(models.Model):
             'avatar' : self.user.get_profile().avatar_or_default(),
         }
         
-def switchlikeits():
-    """ Switch to old system to the new """
-    from django.db.models import connection
-    import sys
-    current = 0
-    cursor = connection.cursor()
-    cursor.execute("""SELECT id FROM ucomment_comment""")
-    alls = cursor.fetchall()
-    total = len(alls)
-    ids = alls
-    for id_ in ids:
-        cursor.execute("select count(id) from ucomment_likedislike where comment_id=%d and `like`=1" % id_)
-        like = cursor.fetchone()[0]
-        cursor.execute("select count(id) from ucomment_likedislike where comment_id=%d and `dislike`=1" % id_)
-        dislike = cursor.fetchone()[0]
-        cursor.execute("update ucomment_comment set `likeit`=%d, dislikeit=%d where id=%d" % (like, dislike, id_[0]))
-        current += 1
-        sys.stdout.write("%d/%d\r" % (current , total))
-    print
-    print "Done"
-
