@@ -30,7 +30,32 @@ import memcache
 # Only on client instance  
 _client = memcache.Client((settings.CACHES['default']['LOCATION'],))
 
-from common import convert_date
+#
+# This is a duplication from core.common.__init__
+# TODO: remove duplication (lib ?)
+#
+Month = {
+    '01': u'janvier',
+    '02': u'fevrier',
+    '03': u'mars',
+    '04': u'avril',
+    '05': u'mai',
+    '06': u'juin',
+    '07': u'juillet',
+    '08': u'aout',
+    '09': u'septembre',
+    '10': u'octobre',
+    '11': u'novembre',
+    '12': u'decembre'
+}
+
+def convert_date(value):
+    """ replace month because strftime is not unicode compliant
+    TODO : A realy better way.
+    """
+    day,month,year=value.strftime('%d %m %Y').split(' ')    
+    return u' '.join([day,Month[month],year])
+
 
 class CommentPrefManager(models.Manager):
     def get_pref(self):
