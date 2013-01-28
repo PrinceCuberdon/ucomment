@@ -25,11 +25,6 @@ from django.contrib.auth.models import User as AuthUser
 from django.template.defaultfilters import linebreaksbr, striptags
 from django.conf import settings
 
-import memcache
-
-# Only on client instance  
-_client = memcache.Client((settings.CACHES['default']['LOCATION'],))
-
 #
 # This is a duplication from core.common.__init__
 # TODO: remove duplication (lib ?)
@@ -138,11 +133,7 @@ SMILEYS = (
 class CommentManager(models.Manager):
     def serialize(self, url):
         """ Serialize commentaries and responses for a particular URL.
-        mainly used for json formated communication """
-        data = _client.get('serialize:%s' % url)
-        if data is not None:
-            return data
-        
+        mainly used for json formated communication """        
         r = []
         for com in list(Comment.objects.filter(url=url, visible=True, trash=False, parent=None)):
             c = {
@@ -152,8 +143,6 @@ class CommentManager(models.Manager):
             for resp in list(Comment.objects.filter(visible=True, trash=False, parent=com)):
                 c['response'].append(resp._get_info())
             r.append(c)
-            
-        _client.set("serialize:%s" % url, r)
         
         return r
 
@@ -253,13 +242,7 @@ class Comment(models.Model):
         return self.parent.get_absolute_url()
     
     def get_response(self):
-        data = _client.get('comment:get_response:%s' % self.pk)
-        if data is not None:
-            return data
-        
-        data = list(Comment.objects.filter(visible=True, trash=False, parent=self).order_by('submission_date'))
-        _client.set('comment:get_response:%s' % self.pk, data)
-        return data
+        return list(Comment.objects.filter(visible=True, trash=False, parent=self).order_by('submission_date'))
         
     def can_set_abuse(self, user):
         """ Return True if the use is not the Comment__user owner or the 
@@ -277,22 +260,10 @@ class Comment(models.Model):
     get_abuse_count.short_description = "Nombre d'abus"
 
     def get_agreeiers(self):
-        data = _client.get('comment:get_agreeiers:%s' % self.pk)
-        if data is not None:
-            return data
-        
-        data = list(LikeDislike.objects.filter(comment=self, like=True, dislike=False).only('user'))
-        _client.set('comment:get_agreeiers:%s' % self.pk, data)
-        return data
+        return list(LikeDislike.objects.filter(comment=self, like=True, dislike=False).only('user'))
 
     def get_disagreeiers(self):
-        data = _client.get('comment:get_disagreeiers:%s' % self.pk)
-        if data is not None:
-            return data
-        
-        data = list(LikeDislike.objects.filter(comment=self, like=False, dislike=True).only('user'))
-        _client.set('comment:get_disagreeiers:%s' % self.pk, data)
-        return data
+        return list(LikeDislike.objects.filter(comment=self, like=False, dislike=True).only('user'))
 
     def _get_info(self):
         """ return the row as a dictionnary """
