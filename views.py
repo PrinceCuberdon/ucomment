@@ -95,7 +95,6 @@ def postmessage(request):
                 # Send a email to all users
                 if parent is not None:
                     comments = list(Comment.objects.filter(Q(parent=parent) & ~Q(user=request.user)).only('user__email'))
-#                    comments = list(Comment.objects.filter(Q(parent=parent)).only('user__email'))
                     mails = {}
                     for comment in comments:
                         mails[comment.user.email] = ''
@@ -111,8 +110,9 @@ def postmessage(request):
                         notif.send()
                     else:
                         ajax_log("DEBUG MODE : I have to send an email to %s " % mails.keys())
+                        
                 # Send Json
-                return HttpResponse(json.dumps(d), mimetype="application/json")
+                return HttpResponse(json.dumps(d, ensure_ascii=False), mimetype="application/json")
         else:
             ajax_log("ucomment.views.postmessage: Not an AJAX call : %s" % request.META['REMOTE_ADDR'])
             
@@ -165,7 +165,7 @@ def agree(request):
                     'avatar': u.user.get_profile().avatar_or_default()
                 })
 
-            return HttpResponse("""{"success": true, "message": "Votre vote a été pris en compte", "agreeiers" : %s}""" % json.dumps(agreeiers), mimetype="application/json")
+            return HttpResponse("""{"success": true, "message": "Votre vote a été pris en compte", "agreeiers" : %s}""" % json.dumps(agreeiers, ensure_ascii=False), mimetype="application/json")
         else:
             ajax_log("ucomment.views.agree: Not an ajax or a post ; %s" % request.META['REMOTE_ADDR'])
     except Exception as error:
@@ -211,7 +211,7 @@ def disagree(request):
                     'username' : u.user.username,
                     'avatar': u.user.get_profile().avatar_or_default()
                 })
-            return HttpResponse("""{"success": true, "message": "Votre vote a été pris en compte", "disagreeiers" : %s}""" % json.dumps(disagreeiers), mimetype="application/json")
+            return HttpResponse("""{"success": true, "message": "Votre vote a été pris en compte", "disagreeiers" : %s}""" % json.dumps(disagreeiers, ensure_ascii=False), mimetype="application/json")
         else:
             ajax_log("ucomment.views.disagree: Not an ajax or a post ; %s" % request.META['REMOTE_ADDR'])
             
