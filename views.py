@@ -128,16 +128,16 @@ def agree(request):
     try:
         if request.is_ajax() and request.method == 'POST':
             if not request.user.is_authenticated() and CommentPref.get_pref().only_registred == True:
-                return HttpResponse("""{"success":false, "message":"Vous devez vous enregistrer pour voter"}""",
+                return HttpResponse(u"""{"success":false, "message":"Vous devez vous enregistrer pour voter"}""",
                                     mimetype="application/json")
             
             comment = Comment.objects.get(pk=request.POST['message'])
             if (comment.user == request.user):
-                return HttpResponse("""{"success":false, "message":"Vous ne pouvez pas voter pour vous même !!"}""",
+                return HttpResponse(u"""{"success":false, "message":"Vous ne pouvez pas voter pour vous même !!"}""",
                                     mimetype="application/json")
                 
             if LikeDislike.objects.filter(comment=comment, user=request.user).count() > 0:
-                return HttpResponse('''{"success":false, "message":"Vous ne pouvez plus voter pour ce message"}''',
+                return HttpResponse(u'''{"success":false, "message":"Vous ne pouvez plus voter pour ce message"}''',
                                     mimetype="application/json")
                 
             LikeDislike.objects.create(
@@ -165,7 +165,7 @@ def agree(request):
                     'avatar': u.user.get_profile().avatar_or_default()
                 })
 
-            return HttpResponse("""{"success": true, "message": "Votre vote a été pris en compte", "agreeiers" : %s}""" % json.dumps(agreeiers, ensure_ascii=False), mimetype="application/json")
+            return HttpResponse(u"""{"success": true, "message": "Votre vote a été pris en compte", "agreeiers" : %s}""" % json.dumps(agreeiers, ensure_ascii=False), mimetype="application/json")
         else:
             ajax_log("ucomment.views.agree: Not an ajax or a post ; %s" % request.META['REMOTE_ADDR'])
     except Exception as error:
