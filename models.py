@@ -20,9 +20,9 @@ import re
 import shutil
 import os
 
-from django.db import models
+from django.db import models, connection
 from django.contrib.auth.models import User as AuthUser
-from django.template.defaultfilters import linebreaksbr, striptags
+from django.template.defaultfilters import linebreaksbr
 from django.conf import settings
 
 #
@@ -145,6 +145,70 @@ class CommentManager(models.Manager):
             r.append(c)
         
         return r
+    
+    def get_with_children(self, url, limit=0):
+        """
+        Get all comments for the URL and the children too
+        """
+        result = []
+        cursora = connection.cursor()
+        cursorb = connection.cursor()
+        
+        if limit > 0:
+            limit = "LIMIT %d" % limit
+        else:
+            limit = ''
+        
+        cursora.execute("""
+        SELECT co.id, co.submission_date, au.username, co.content, ut.avatar
+        FROM ucomment_comment co, auth_user au, bandcochon_utilisateur ut
+        WHERE co.url='%s' AND co.visible=1 AND co.user_id=au.id AND ut.user_id=au.id
+        ORDER BY co.submission_date DESC %s""" % (url,limit))
+        
+        cols = [d[0] for d in cursora.description]
+        for com in cursora.fetchall():
+            parent = dict(zip(cols, com))
+            parent['like'], parent['dislike'] = self._get_like_dislike_for(parent['id'])
+            
+            cursorb.execute("""
+            SELECT co.id, co.submission_date, au.username, co.content
+            FROM ucomment_comment co, auth_user au
+            WHERE co.url='%s' AND co.visible=1 AND co.user_id=au.id
+            """ % parent['id'])
+            children = []
+            for child in cursorb.fetchall():
+                child_ = dict(zip(cols, child))
+                child_['like'], child_['dislike'] = self._get_like_dislike_for(child_['id'])
+                children.append(child_)
+            parent['responses'] = children
+            result.append(parent)
+                        
+        return result
+
+    def _get_like_dislike_for(self,id_):
+        """
+        Return like and dislike for a message
+        """
+        cursor = connection.cursor()
+        cursor.execute("""
+        SELECT     au.username, ut.avatar
+        FROM       ucomment_likedislike ud
+        INNER JOIN auth_user au ON(ud.user_id=au.id)
+        INNER JOIN bandcochon_utilisateur ut ON(au.id=ut.user_id)
+        WHERE ud.comment_id='%d' AND ud.like='1' """ % id_)
+        cols = [d[0] for d in cursor.description]
+        likeit = [dict(zip(cols, row)) for row in cursor.fetchall()]
+        
+        cursor.execute("""
+        SELECT     au.username, ut.avatar
+        FROM       ucomment_likedislike ud
+        INNER JOIN auth_user au ON(ud.user_id=au.id)
+        INNER JOIN bandcochon_utilisateur ut ON(au.id=ut.user_id)
+        WHERE ud.comment_id='%d' AND ud.dislike='1' """ % id_)
+        dislike_it = [dict(zip(cols, row)) for row in cursor.fetchall()]
+        
+        return likeit, dislike_it
+
 
 class Comment(models.Model):
     url = models.CharField(max_length=255, db_index=True,
@@ -168,12 +232,9 @@ class Comment(models.Model):
 
     def save(self, *args, **kwargs):
         """ Replace links and smileys """
-        
         # Does this message have a <a> tag which it means it's just a vote
         if re.search(r'<a\s+href=.*?</a>', self.content) is None:
-            #self.content = striptags(self.content) + " "
             self.content += " "
-            
             
             # You Tube
             self.content = re.sub(r'&feature=related', '', self.content)
@@ -193,7 +254,6 @@ class Comment(models.Model):
             ## remove youtube contents
             try:
                 for a in re.findall(r'((http|https)://.*?)[\s+|<]', self.content):
-                    print a
                     if re.search(r'dailymotion|youtu', a[0]):
                         continue
                             
