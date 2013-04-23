@@ -167,6 +167,7 @@ class CommentManager(models.Manager):
         
         cols = [d[0] for d in cursora.description]
         for com in cursora.fetchall():
+            com[1] = convert_date(com[1])
             parent = dict(zip(cols, com))
             parent['like'], parent['dislike'] = self._get_like_dislike_for(parent['id'])
             
@@ -177,6 +178,7 @@ class CommentManager(models.Manager):
             """ % parent['id'])
             children = []
             for child in cursorb.fetchall():
+                child[1] = convert_date(child[1])
                 child_ = dict(zip(cols, child))
                 child_['like'], child_['dislike'] = self._get_like_dislike_for(child_['id'])
                 children.append(child_)
