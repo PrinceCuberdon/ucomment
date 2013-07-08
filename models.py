@@ -173,18 +173,15 @@ class CommentManager(models.Manager):
         result = []
         cursora = connection.cursor()
         cursorb = connection.cursor()
-        
         if limit > 0:
             limit = "LIMIT %d" % limit
         else:
             limit = ''
-        
         cursora.execute("""
         SELECT co.id, co.submission_date, au.username, co.content, ut.avatar
         FROM ucomment_comment co, auth_user au, bandcochon_utilisateur ut
         WHERE co.url='%s' AND co.visible=1 AND co.user_id=au.id AND ut.user_id=au.id
         ORDER BY co.submission_date DESC %s""" % (url,limit))
-        
         cols = [d[0] for d in cursora.description]
         for com in cursora.fetchall():
             com = list(com)
@@ -199,6 +196,7 @@ class CommentManager(models.Manager):
             """ % parent['id'])
             children = []
             for child in cursorb.fetchall():
+                child = list(child)
                 child[1] = convert_date(child[1])
                 child_ = dict(zip(cols, child))
                 child_['like'], child_['dislike'] = self._get_like_dislike_for(child_['id'])
