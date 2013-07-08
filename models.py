@@ -24,6 +24,7 @@ from django.db import models, connection
 from django.contrib.auth.models import User as AuthUser
 from django.template.defaultfilters import linebreaksbr
 from django.conf import settings
+from django.core.cache import cache
 
 #
 # This is a duplication from core.common.__init__
@@ -131,6 +132,23 @@ SMILEYS = (
 )
 
 class CommentManager(models.Manager):
+    def getForParent(self, parent):
+        data = cache.get('get_for_parent-%s' % parent.url)
+        if data is None:
+            data = list(super(CommentManager, self).get_query_set().filter(parent=parent, visible=True, trash=False))
+            cache.set('get_for_parent-%s' % parent.url, data)
+        return cache
+    
+    def getForUrl(self, url, count=-1):
+        """
+        Get last comments for the url
+        """
+        data = cache.get('get_for_url-%s' % url)
+        if data is None:
+            data = super(CommentManager, self).get_query_set().filter(url=url, visible=True, trash=False, parent=None)[:count]
+            cache.set('get_for_url-%s' % url, data)
+        return data
+    
     def serialize(self, url):
         """ Serialize commentaries and responses for a particular URL.
         mainly used for json formated communication """        
@@ -140,8 +158,10 @@ class CommentManager(models.Manager):
                 'message': com._get_info(),
                 'response': []
             }
+            
             for resp in list(Comment.objects.filter(visible=True, trash=False, parent=com)):
                 c['response'].append(resp._get_info())
+            
             r.append(c)
         
         return r
@@ -167,6 +187,7 @@ class CommentManager(models.Manager):
         
         cols = [d[0] for d in cursora.description]
         for com in cursora.fetchall():
+            com = list(com)
             com[1] = convert_date(com[1])
             parent = dict(zip(cols, com))
             parent['like'], parent['dislike'] = self._get_like_dislike_for(parent['id'])
@@ -184,7 +205,6 @@ class CommentManager(models.Manager):
                 children.append(child_)
             parent['responses'] = children
             result.append(parent)
-                        
         return result
 
     def _get_like_dislike_for(self,id_):
@@ -237,7 +257,7 @@ class Comment(models.Model):
         # Does this message have a <a> tag which it means it's just a vote
         if re.search(r'<a\s+href=.*?</a>', self.content) is None:
             self.content += " "
-            
+
             # You Tube
             self.content = re.sub(r'&feature=related', '', self.content)
             self.content = re.sub(r'http://www\.youtube\.com/watch\?v=(.{11})',NEW_YOUTUBE_CODE, self.content)
@@ -254,7 +274,7 @@ class Comment(models.Model):
             self.content = re.sub(r'(http://.*?\.gif)\s','<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />', self.content, re.I)
             
             ## remove youtube contents
-            try:
+            try: 
                 for a in re.findall(r'((http|https)://.*?)[\s+|<]', self.content):
                     if re.search(r'dailymotion|youtu', a[0]):
                         continue
