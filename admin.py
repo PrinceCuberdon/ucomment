@@ -17,7 +17,7 @@
 
 from django.contrib import admin
 
-from ucomment.models import Comment, CommentPref, LikeDislike, CommentAbuse
+from .models import Comment, CommentPref, LikeDislike, CommentAbuse
 
 class CommentAdmin(admin.ModelAdmin):
     list_display = ('__unicode__', 'submission_date', 'user', 'external_user', 'parent', 'visible', 'trash', 'ip', 'moderate', 'get_abuse_count','is_message',)
