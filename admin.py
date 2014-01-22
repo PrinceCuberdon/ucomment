@@ -24,6 +24,7 @@ class CommentAdmin(admin.ModelAdmin):
     list_editable = ('visible', 'trash',  'moderate', )
     list_filter = ('url', 'submission_date', 'user', 'parent', 'visible', 'moderate','is_message',)
     search_fields = ('url', 'user__username', 'content',)
+    date_hierarchy = 'submission_date'
     
     
 admin.site.register(Comment, CommentAdmin)
