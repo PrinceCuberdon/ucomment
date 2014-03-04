@@ -107,13 +107,11 @@ def postmessage(request):
                         'message' : comment.content,
                         'url' : comment.url
                     })
-                    if settings.IS_LOCAL == False and settings.IS_TESTING == False:
+                    if not settings.IS_LOCAL and not settings.IS_TESTING:
                         notif = Notification(settings.BANDCOCHON_CONFIG.EmailTemplates.user_comment)
                         for mail in mails.keys():
                             notif.push(mail, req)
                         notif.send()
-                    else:
-                        ajax_log("DEBUG MODE : I have to send an email to %s " % mails.keys())
 
                 # Send Json
                 return HttpResponse(json.dumps(data, ensure_ascii=False), mimetype="application/json")
@@ -163,8 +161,6 @@ def agree(request):
                                     'url' : comment.get_absolute_url()
                                   })
                 )
-            else:
-                ajax_log("DEBUG MODE : I have to send a email")
 
             agreeiers = []
             for u in comment.get_agreeiers():
@@ -212,8 +208,6 @@ def disagree(request):
                     'message' : comment.content,
                     'url' : comment.get_absolute_url()
                 }))
-            else:
-                ajax_log("DEBUG MODE : I have to send a email")
 
             disagreeiers = []
             for u in comment.get_disagreeiers():
