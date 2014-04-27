@@ -109,8 +109,8 @@ class LikeDislike(models.Model):
         return self.comment.url
 
 
-NEW_YOUTUBE_CODE = '''<iframe width="560" height="315" src="http://www.youtube.com/embed/\\1" frameborder="0" allowfullscreen></iframe>'''
-NEW_DAILYMOTION_CODE = '''<iframe frameborder="0" width="560" height="315" src="http://www.dailymotion.com/embed/video/\\1"></iframe><br>'''
+NEW_YOUTUBE_CODE = '''<div class="videocontainer"><iframe width="560" height="315" src="http://www.youtube.com/embed/\\1" frameborder="0" allowfullscreen></iframe></div>'''
+NEW_DAILYMOTION_CODE = '''<div class="videocontainer"><iframe frameborder="0" width="560" height="315" src="http://www.dailymotion.com/embed/video/\\1"></iframe></div><br>'''
 
 SMILEYS = (
     (r'O:\)|O:-\)',                 'angel'),
