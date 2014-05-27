@@ -31,12 +31,13 @@ from django.contrib.sites.models import Site
 from django.conf import settings
 from django.db.models import Q
 from django.middleware.csrf import get_token
-from django.shortcuts import render_to_response
+from django.shortcuts import render_to_response, render
 from django.views.generic import TemplateView
 
 from core.bandcochon.models import Picture
 from .models import Comment, LikeDislike, CommentPref, CommentAbuse
 
+from libs import MustBeAjaxMixin
 from libs.notification import ajax_log, notification_send, Notification
 from core.common import convert_date
 
@@ -53,10 +54,26 @@ class BookView(TemplateView):
         return context
 
 
+class BookViewNext(TemplateView):
+    template_name = settings.UCOMMENT_NEXT_TEMPLATE
+
+    def get(self, request, *args, **kwargs):
+        if not request.is_ajax() or not request.method == 'GET':
+            return HttpResponseBadRequest('')
+
+        count = int(request.GET.get('from', 0)) - 1
+        comments = list(Comment.objects.filter(visible=True, trash=False, url='/', parent=None)[count+1:count+25])
+        return render(request, {
+            'url': '/',
+            'book_comments': list(comments),
+            'display_conn': False
+        })
+
+
 def book_next(request):
     """ Get next messages on the wall as JSON """
     if request.is_ajax() and request.method == "GET":
-        count = int(request.GET.get('from', 0))-1
+        count = int(request.GET.get('from', 0)) - 1
         comments = list(Comment.objects.filter(visible=True, trash=False, url='/', parent=None)[count+1:count+25])
         return render_to_response('inc/book.html', RequestContext(request, {
             'url': '/',
