@@ -31,12 +31,41 @@ from django.contrib.sites.models import Site
 from django.conf import settings
 from django.db.models import Q
 from django.middleware.csrf import get_token
+from django.shortcuts import render_to_response
+from django.views.generic import TemplateView
 
 from core.bandcochon.models import Picture
 from .models import Comment, LikeDislike, CommentPref, CommentAbuse
 
 from libs.notification import ajax_log, notification_send, Notification
 from core.common import convert_date
+
+
+class BookView(TemplateView):
+    template_name = settings.UCOMMENT_TEMPLATE
+
+    def get_context_data(self, **kwargs):
+        # Call the context
+        context = super(BookView, self).get_context_data(**kwargs)
+        context['book_comments'] = Comment.objects.getForUrl('/', 25)
+        context['display_conn'] = True
+
+        return context
+
+
+def book_next(request):
+    """ Get next messages on the wall as JSON """
+    if request.is_ajax() and request.method == "GET":
+        count = int(request.GET.get('from', 0))-1
+        comments = list(Comment.objects.filter(visible=True, trash=False, url='/', parent=None)[count+1:count+25])
+        return render_to_response('inc/book.html', RequestContext(request, {
+            'url': '/',
+            'book_comments': list(comments),
+            'display_conn': False
+        }))
+
+    return HttpResponseBadRequest('')
+
 
 def postmessage(request):
     """ Post a message as AJAX """

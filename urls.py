@@ -15,14 +15,24 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.conf.urls.defaults import patterns, url
+from django.conf.urls import patterns, url
 
-urlpatterns = patterns('ucomment',
-    url('^postmessage/$',   'views.postmessage',    name='ucomment_postmessage'),
-    url(r'^agree/$',        'views.agree',          name="ucomment_agree"),
-    url(r'^disagree/$',     'views.disagree',       name='ucomment_disagree'),
-    url(r'^moderate/$',     'views.moderate',       name='ucomment_moderate'),
-    url(r'^nextcomment/$',  'views.nextcomment',    name='ucomment_nextcomment'),
-    url(r'^showlast/$',     'views.showlast',       name='ucomment_showlast'),
-    url(r'^sendphoto/$',    'views.sendphoto',      name="ucomment_sendphoto"),
+from .views import BookView
+
+urlpatterns = patterns('',
+    url(
+        r'^book/$',
+        BookView.as_view(),
+        name="ucomment_book"
+    ),
+
+    url(r'^book/next/$',             'ucomment.views.book_next'),
+
+    url(r'^ucomment/postmessage/$',  'ucomment.views.postmessage',    name='ucomment_postmessage'),
+    url(r'^ucomment/agree/$',        'ucomment.views.agree',          name="ucomment_agree"),
+    url(r'^ucomment/disagree/$',     'ucomment.views.disagree',       name='ucomment_disagree'),
+    url(r'^ucomment/moderate/$',     'ucomment.views.moderate',       name='ucomment_moderate'),
+    url(r'^ucomment/nextcomment/$',  'ucomment.views.nextcomment',    name='ucomment_nextcomment'),
+    url(r'^ucomment/showlast/$',     'ucomment.views.showlast',       name='ucomment_showlast'),
+    url(r'^ucomment/sendphoto/$',    'ucomment.views.sendphoto',      name="ucomment_sendphoto"),
 )

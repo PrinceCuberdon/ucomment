@@ -151,13 +151,27 @@ class CommentManager(models.Manager):
         """
         Get last comments for the url
         """
-        data = cache.get('get_for_url-%s' % url)
-        if data is None:
-            data = super(CommentManager, self).get_query_set().filter(url=url,
-                                                                      visible=True,
-                                                                      trash=False, parent=None)[:count]
-            cache.set('get_for_url-%s' % url, data)
-        return data
+        if count == -1:
+            # Get all
+            comments = list(self.get_query_set().filter(visible=True, trash=False, url="/", parent=None))
+        else:
+            comments = list(self.get_query_set().filter(visible=True, trash=False, url="/", parent=None)[:count])
+
+        # Get and regroup sons
+        comments_son = {}
+        for cs in list(self.get_query_set().filter(parent__in=[comment.pk for comment in comments])):
+            if not cs.parent.pk in comments_son:
+                comments_son[cs.parent.pk] = []
+            comments_son[cs.parent.pk].append(cs)
+
+        # Attribute sons to parents
+        for com in comments:
+            if com.pk in comments_son:
+                com.get_response = comments_son[com.pk]
+            else:
+                com.get_response = None
+
+        return comments
 
     def serialize(self, url):
         """ Serialize commentaries and responses for a particular URL.
@@ -342,8 +356,8 @@ class Comment(models.Model):
             return self.url
         return self.parent.get_absolute_url()
 
-    def get_response(self):
-        return list(Comment.objects.filter(visible=True, trash=False, parent=self).order_by('submission_date'))
+    # def get_response(self):
+    #     return list(Comment.objects.filter(visible=True, trash=False, parent=self).order_by('submission_date'))
 
     def can_set_abuse(self, user):
         """ Return True if the use is not the Comment__user owner or the
