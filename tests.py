@@ -30,9 +30,9 @@ from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseBadRequest, HttpResponse
 
-from ucomment.templatetags.ucomment_tags import comment_count, get_total_comments_count
-from ucomment.models import CommentPref, Comment, LikeDislike
-from bandcochon.models import Utilisateur
+from .templatetags.ucomment_tags import comment_count, get_total_comments_count
+from .models import CommentPref, Comment, LikeDislike
+from core.bandcochon.models import Utilisateur
 
 SMILIES = (
     ('O:)',     'angel'),

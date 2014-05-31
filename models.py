@@ -153,9 +153,9 @@ class CommentManager(models.Manager):
         """
         if count == -1:
             # Get all
-            comments = list(self.get_query_set().filter(visible=True, trash=False, url="/", parent=None))
+            comments = list(self.get_query_set().filter(visible=True, trash=False, url=url, parent=None))
         else:
-            comments = list(self.get_query_set().filter(visible=True, trash=False, url="/", parent=None)[:count])
+            comments = list(self.get_query_set().filter(visible=True, trash=False, url=url, parent=None)[:count])
 
         # Get and regroup sons
         comments_son = {}
