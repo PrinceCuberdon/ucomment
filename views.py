@@ -98,7 +98,7 @@ def postmessage(request):
             parent = Comment.objects.get(pk=parent) if parent != 0 else None
             content = request.POST['content']
             onwallurl = request.POST.get('onwallurl', '/')
-            print request.POST
+
             if content:
                 referer = request.POST.get('url', None)
                 if not referer:
@@ -160,7 +160,7 @@ def postmessage(request):
                         notif.send()
 
                 # Send Json
-                return HttpResponse(json.dumps(data, ensure_ascii=False), mimetype="application/json")
+                return HttpResponse(json.dumps(data, ensure_ascii=False), content_type="application/json")
         else:
             ajax_log("ucomment.views.postmessage: Not an AJAX call : %s" % request.META['REMOTE_ADDR'])
 
@@ -178,16 +178,16 @@ def agree(request):
         if request.is_ajax() and request.method == 'POST':
             if not request.user.is_authenticated() and CommentPref.get_pref().only_registred == True:
                 return HttpResponse(u"""{"success":false, "message":"Vous devez vous enregistrer pour voter"}""",
-                                    mimetype="application/json")
+                                    content_type="application/json")
 
             comment = Comment.objects.get(pk=request.POST['message'])
             if (comment.user == request.user):
                 return HttpResponse(u"""{"success":false, "message":"Vous ne pouvez pas voter pour vous même !!"}""",
-                                    mimetype="application/json")
+                                    content_type="application/json")
 
             if LikeDislike.objects.filter(comment=comment, user=request.user).count() > 0:
                 return HttpResponse(u'''{"success":false, "message":"Vous ne pouvez plus voter pour ce message"}''',
-                                    mimetype="application/json")
+                                    content_type="application/json")
 
             LikeDislike.objects.create(
                 user=request.user,
@@ -216,7 +216,7 @@ def agree(request):
                 })
 
             return HttpResponse(u"""{"success": true, "message": "Votre vote a été pris en compte", "agreeiers" : %s}"""
-                                % json.dumps(agreeiers, ensure_ascii=False), mimetype="application/json")
+                                % json.dumps(agreeiers, ensure_ascii=False), content_type="application/json")
         else:
             ajax_log("ucomment.views.agree: Not an ajax or a post ; %s" % request.META['REMOTE_ADDR'])
     except Exception as error:
@@ -230,14 +230,14 @@ def disagree(request):
         if request.is_ajax() and request.method == 'POST':
             if not request.user.is_authenticated():
                 return HttpResponse("""{"success":false, "message":"Vous devez vous enregistrer pour voter"}""",
-                                    mimetype="application/json")
+                                    content_type="application/json")
 
             comment = Comment.objects.get(pk=request.POST['message'])
             if (comment.user == request.user):
-                return HttpResponse("""{"success":false, "message":"Vous ne pouvez pas voter pour vous m&ecirc;me !!"}""", mimetype="application/json")
+                return HttpResponse("""{"success":false, "message":"Vous ne pouvez pas voter pour vous m&ecirc;me !!"}""", content_type="application/json")
 
             if LikeDislike.objects.filter(comment=comment, user=request.user).count() > 0:
-                return HttpResponse('''{"success":false, "message":"Vous ne pouvez plus voter pour ce message"}''', mimetype="application/json")
+                return HttpResponse('''{"success":false, "message":"Vous ne pouvez plus voter pour ce message"}''', content_type="application/json")
 
             LikeDislike.objects.create(
                 user=request.user,
@@ -261,7 +261,7 @@ def disagree(request):
                     'username' : u.user.username,
                     'avatar': u.user.get_profile().avatar_or_default()
                 })
-            return HttpResponse(u"""{"success": true, "message": "Votre vote a été pris en compte", "disagreeiers" : %s}""" % json.dumps(disagreeiers, ensure_ascii=False), mimetype="application/json")
+            return HttpResponse(u"""{"success": true, "message": "Votre vote a été pris en compte", "disagreeiers" : %s}""" % json.dumps(disagreeiers, ensure_ascii=False), content_type="application/json")
         else:
             ajax_log("ucomment.views.disagree: Not an ajax or a post ; %s" % request.META['REMOTE_ADDR'])
 
@@ -349,7 +349,7 @@ def sendphoto(request):
                             'success':False,
                             'message': 'An error occured',
                             'datarel':datarel
-                        }), mimetype="application/json")
+                        }), content_type="application/json")
                     else:
                         return HttpResponse("""<script type="text/javascript">window.top.window.imageUploaded""" +
                                             """('Une erreur est survenue', 0, true);</script>""")
@@ -361,7 +361,7 @@ def sendphoto(request):
                             'success':False,
                             'message': 'File type unauthorized',
                             'datarel': datarel
-                        }), mimetype="application/json")
+                        }), content_type="application/json")
                     else:
                         return HttpResponse('''<script type="text/javascript">window.top.window.''' +
                                             '''imageUploaded("Ce type de fichier n'est pas autoris&eacute;",''' +
@@ -391,7 +391,7 @@ def sendphoto(request):
                         'success':True,
                         'image': relative_path,
                         'datarel': datarel
-                    }), mimetype="application/json")
+                    }), content_type="application/json")
                 else:
                     return HttpResponse("""<script type="text/javascript">window.top.window.imageUploaded""" +
                                         """('%s', %s, false);</script>""" % (relative_path, datarel))
@@ -404,7 +404,7 @@ def sendphoto(request):
         return HttpResponse(json.dumps({
             'success': False,
             'message':'An error occured'
-        }), mimetype="application/json")
+        }), content_type="application/json")
     else:
         return HttpResponse("""<script type="text/javascript">window.top.window.imageUploaded""" +
                             """('Une erreur est survenue et tout a merdu', %s, true);</script>""" % datarel)
