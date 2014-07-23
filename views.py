@@ -33,6 +33,7 @@ from django.db.models import Q
 from django.middleware.csrf import get_token
 from django.shortcuts import render_to_response, render
 from django.views.generic import TemplateView
+from django.views.decorators.csrf import csrf_exempt
 
 from core.bandcochon.models import Picture
 from .models import Comment, LikeDislike, CommentPref, CommentAbuse
@@ -84,6 +85,7 @@ def book_next(request):
     return HttpResponseBadRequest('')
 
 
+@csrf_exempt
 def postmessage(request):
     """ Post a message as AJAX """
     try:
@@ -170,6 +172,7 @@ def postmessage(request):
     return HttpResponseBadRequest('')
 
 
+@csrf_exempt
 def agree(request):
     """ Agree a comment
     @TODO: Translate messages
@@ -224,6 +227,8 @@ def agree(request):
 
     return HttpResponseBadRequest('')
 
+
+@csrf_exempt
 def disagree(request):
     """ Disagree a comment """
     try:
@@ -330,6 +335,7 @@ def showlast(request):
 
 
 @login_required
+@csrf_exempt
 def sendphoto(request):
     """ Send a picture, storeit into temp directory """
     datarel = 0
