@@ -159,7 +159,7 @@ class CommentManager(models.Manager):
 
         # Get and regroup sons
         comments_son = {}
-        for cs in list(self.get_query_set().filter(parent__in=[comment.pk for comment in comments])):
+        for cs in list(self.get_query_set().filter(parent__in=[comment.pk for comment in comments]).order('submission_date')):
             if not cs.parent.pk in comments_son:
                 comments_son[cs.parent.pk] = []
             comments_son[cs.parent.pk].append(cs)
