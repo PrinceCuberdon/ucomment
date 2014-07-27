@@ -341,7 +341,7 @@ def sendphoto(request):
     datarel = 0
     try:
         if request.method == 'POST':
-            is_html5 = "HTTP_X_REQUESTED_WITH" in request.META
+            is_html5 = True  # "HTTP_X_REQUESTED_WITH" in request.META
             keys = request.FILES.keys()
             if len(keys) == 1:
                 # Get informations
