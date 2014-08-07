@@ -198,7 +198,7 @@ class CommentManager(models.Manager):
         cursora = connection.cursor()
         cursorb = connection.cursor()
         if limit > 0:
-            limit = "LIMIT %d" % limit
+            limit = "LIMIT %d" % int(limit)
         else:
             limit = ''
         cursora.execute("""
