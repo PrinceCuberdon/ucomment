@@ -2,19 +2,6 @@
 # ucomment is part of Band Cochon
 # Band Cochon (c) Prince Cuberdon 2011 and Later <princecuberdon@bandcochon.fr>
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 
 import re
 import shutil
@@ -109,7 +96,7 @@ class LikeDislike(models.Model):
         return self.comment.url
 
 
-NEW_YOUTUBE_CODE = '''<div class="videocontainer"><iframe width="560" height="315" src="http://www.youtube.com/embed/\\1" frameborder="0" allowfullscreen></iframe></div>'''
+NEW_YOUTUBE_CODE = '''<div class="videocontainer"><iframe width="560" height="315" src="https://www.youtube.com/embed/\\1" frameborder="0" allowfullscreen></iframe></div>'''
 NEW_DAILYMOTION_CODE = '''<div class="videocontainer"><iframe frameborder="0" width="560" height="315" src="http://www.dailymotion.com/embed/video/\\1"></iframe></div><br>'''
 
 SMILEYS = (
@@ -283,7 +270,7 @@ class Comment(models.Model):
 
             # You Tube
             self.content = re.sub(r'&feature=related', '', self.content)
-            self.content = re.sub(r'http://www\.youtube\.com/watch\?v=(.{11})', NEW_YOUTUBE_CODE, self.content)
+            self.content = re.sub(r'[http|https]://www\.youtube\.com/watch\?v=(.{11})', NEW_YOUTUBE_CODE, self.content)
             self.content = re.sub(r'http://youtu\.be/(.{11})', NEW_YOUTUBE_CODE, self.content)
             # TODO: Get all youtube param with split("&") and just add v=
             self.content = re.sub(r'http://www.youtube.com/watch\?feature=endscreen&NR=1&v=(.{11})',

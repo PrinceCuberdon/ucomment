@@ -1,4 +1,5 @@
-ucomment
-========
+# django-ucomment
+Django Universal Comment
 
-Django Universal comment system
+
+
