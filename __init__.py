@@ -8,7 +8,7 @@ Public API
 
 import datetime
 
-from libs.ucomment.models import Comment, CommentPref
+from .models import Comment, CommentPref
 
 def post_message(message, url=None, message_url=None, ip=None):
     """ Post a message not a comment """
