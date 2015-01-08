@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
-# ucomment is part of Band Cochon
-# Band Cochon (c) Prince Cuberdon 2011 and Later <princecuberdon@bandcochon.fr>
+# UComment - Django Universal Comment
+# (c) Prince Cuberdon 2011 and Later <princecuberdon@bandcochon.fr>
 #
 
 import locale
@@ -8,42 +8,21 @@ import re
 import shutil
 import os
 
+from django.utils.translation import ugettext_lazy as _
 from django.db import models, connection
 from django.contrib.auth.models import User as AuthUser
 from django.template.defaultfilters import linebreaksbr
 from django.conf import settings
 from django.core.cache import cache
 
-#
-# This is a duplication from core.common.__init__
-# TODO: remove duplication (lib ?)
-#
-#Month = {
-#    '01': u'janvier',
-#    '02': u'fevrier',
-#    '03': u'mars',
-#    '04': u'avril',
-#    '05': u'mai',
-#    '06': u'juin',
-#    '07': u'juillet',
-#    '08': u'aout',
-#    '09': u'septembre',
-#    '10': u'octobre',
-#    '11': u'novembre',
-#    '12': u'decembre'
-#}
 
 def convert_date(value):
-    """ replace month because strftime is not unicode compliant
-    TODO : A realy better way. (that't is)
-    """
-    return value.strftime(u"%d %B %Y").decode(locale.getpreferredencoding())
-    #day, month, year = value.strftime('%d %m %Y').split(' ')
-    #return u' '.join([day, Month[month], year])
+    """ replace month because strftime is not unicode compliant """
+    return value.strftime("%d %B %Y").decode(locale.getpreferredencoding())
 
 
 class CommentPrefManager(models.Manager):
-    def get_pref(self):
+    def get_preferences(self):
         """ Return preferences for Comment. Create with default values if not exists """
         try:
             return CommentPref.objects.lastest('id')
@@ -55,29 +34,43 @@ class CommentPrefManager(models.Manager):
 
 class CommentPref(models.Model):
     """ Preferences for UComment """
-    only_registred = models.BooleanField(default=True)
-    use_like_dislike = models.BooleanField(default=True)
-    publish_on_submit = models.BooleanField(default=True)
-    register_ip = models.BooleanField(default=True)
-    abuse_max = models.SmallIntegerField(default=3,
-                                         verbose_name="Abus maximum",
-                                         help_text=u"Nombre d'abus maximum avant que le message ne passe en modération")
-    use_notification = models.BooleanField(default=False,
-                                           verbose_name="Notification",
-                                           help_text=u"Use notification inside the Wall")
+    only_registred = models.BooleanField(
+        default=True,
+        verbose_name=_("Only registred"),
+        help_text=_("Only registred user can post (if no, every body can post)")
+    )
+    
+    use_like_dislike = models.BooleanField(
+        default=True,
+        verbose_name=_("Use Like Dislike"),
+        help_text=_("Use the like and dislike system.")
+    )
+    
+    # TODO: Remove this
+    publish_on_submit = models.BooleanField(
+        default=True
+    )
+    
+    register_ip = models.BooleanField(
+        default=True,
+        verbose_name=_("Register IP"),
+        help_text=_("Save IP address on each post")
+    )
+    
+    abuse_max = models.SmallIntegerField(
+        default=3,
+        verbose_name=_("Maximum abuse"),
+        help_text=_("Maximum abuse count before moderation")
+    )
+    
+    # TODO: Remove this
+    use_notification = models.BooleanField(
+        default=False,
+        verbose_name="Notification",
+        help_text=u"Use notification inside the Wall"
+    )
 
     objects = CommentPrefManager()
-
-    @classmethod
-    def get_pref(self):
-        """ Singleton : get preferences """
-        try:
-            return CommentPref.objects.lastest('id')
-        except:
-            pass
-
-
-        return CommentPref.objects.create()
 
     def __unicode__(self):
         return "Comment Preferences : #%d" % self.pk
@@ -161,7 +154,10 @@ class CommentManager(models.Manager):
                 com.get_response = None
 
         return comments
-
+    
+    def get_for_url(self, url, count=-1):
+        return self.getForUrl(url, count)
+    
     def serialize(self, url):
         """ Serialize commentaries and responses for a particular URL.
         mainly used for json formated communication """

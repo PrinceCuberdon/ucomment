@@ -77,8 +77,7 @@ def postmessage(request):
     """ Post a message as AJAX """
     try:
         if request.method == 'POST' and request.is_ajax():
-            # FIXME : CommentPref.objects.get_pref instead of COmmentPref.get_pref
-            if CommentPref.get_pref().only_registred == True and request.user.is_authenticated() == False:
+            if CommentPref.objects.get_pref().only_registred == True and request.user.is_authenticated() == False:
                 ajax_log('ucomment.views.postmessage: Try to post when not authenticated. IP address: %s' %
                          request.META['REMOTE_ADDR'])
                 return HttpResponseBadRequest('')
@@ -101,7 +100,7 @@ def postmessage(request):
                     url=referer,
                     content=content,
                     submission_date=datetime.datetime.now(),
-                    visible=CommentPref.get_pref().publish_on_submit,
+                    visible=CommentPref.objects.get_pref().publish_on_submit,
                     ip=request.META['REMOTE_ADDR'],
                     user=request.user,
                     parent=parent
@@ -166,7 +165,7 @@ def agree(request):
     """
     try:
         if request.is_ajax() and request.method == 'POST':
-            if not request.user.is_authenticated() and CommentPref.get_pref().only_registred == True:
+            if not request.user.is_authenticated() and CommentPref.objects.get_pref().only_registred == True:
                 return HttpResponse(u"""{"success":false, "message":"Vous devez vous enregistrer pour voter"}""",
                                     content_type="application/json")
 
@@ -269,7 +268,7 @@ def moderate(request):
         if request.is_ajax():
             if request.method == 'POST':
                 comment = Comment.objects.get(pk=request.POST['rel'])
-                abuse_max = int(CommentPref.get_pref().abuse_max)
+                abuse_max = int(CommentPref.objects.get_pref().abuse_max)
                 if request.user.is_staff:
                         comment.moderate = True
                 else:
