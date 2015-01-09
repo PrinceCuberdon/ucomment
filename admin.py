@@ -65,7 +65,15 @@ class CommentPrefAdmin(admin.ModelAdmin):
         'abuse_max'        
     )
 
+class LikeDislikeAdmin(admin.ModelAdmin):
+    list_display = (
+        '__unicode__',
+        'user',
+        'like',
+        'dislike'
+    )
+    
 admin.site.register(Comment, CommentAdmin)
 admin.site.register(CommentPref, CommentPrefAdmin)
-admin.site.register(LikeDislike)
+admin.site.register(LikeDislike, LikeDislikeAdmin)
 admin.site.register(CommentAbuse)

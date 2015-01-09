@@ -105,7 +105,6 @@ def increase_like_dislike(sender, **kwargs):
     is updated.
     """
     comment = kwargs['instance'].comment
-    print kwargs['instance'].like, kwargs['instance'].dislike
     if kwargs['instance'].like:
         comment.likeit += 1
         

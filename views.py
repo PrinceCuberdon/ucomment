@@ -173,50 +173,50 @@ def like_it(request, comment_id):
         return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
     
     
-    if request.is_ajax() and request.method == 'POST':
-        if not request.user.is_authenticated() and CommentPref.objects.get_preferences().only_registred == True:
-            return HttpResponse(u"""{"success":false, "message":"Vous devez vous enregistrer pour voter"}""",
-                                content_type="application/json")
-
-        comment = Comment.objects.get(pk=request.POST['message'])
-        if (comment.user == request.user):
-            return HttpResponse(u"""{"success":false, "message":"Vous ne pouvez pas voter pour vous même !!"}""",
-                                content_type="application/json")
-
-        if LikeDislike.objects.filter(comment=comment, user=request.user).count() > 0:
-            return HttpResponse(u'''{"success":false, "message":"Vous ne pouvez plus voter pour ce message"}''',
-                                content_type="application/json")
-
-        LikeDislike.objects.create(
-            user=request.user,
-            comment=comment,
-            like=True
-        )
-
-        comment.likeit += 1
-        comment.save()
-
-        if comment.user.get_profile().accept_notification and not settings.IS_LOCAL and not settings.IS_TESTING:
-            notification_send(settings.BANDCOCHON_CONFIG.EmailTemplates.user_like,
-                              comment.user.email,
-                              RequestContext(request, {
-                                'username' : request.user.username,
-                                'message' : comment.content,
-                                'url' : comment.get_absolute_url()
-                              })
-            )
-
-        agreeiers = []
-        for u in comment.get_agreeiers():
-            agreeiers.append({
-                'username' : u.user.username,
-                'avatar': u.user.get_profile().avatar_or_default()
-            })
-
-        return HttpResponse(u"""{"success": true, "message": "Votre vote a été pris en compte", "agreeiers" : %s}"""
-                            % json.dumps(agreeiers, ensure_ascii=False), content_type="application/json")
-
-    return HttpResponseBadRequest('')
+    #if request.is_ajax() and request.method == 'POST':
+    #    if not request.user.is_authenticated() and CommentPref.objects.get_preferences().only_registred == True:
+    #        return HttpResponse(u"""{"success":false, "message":"Vous devez vous enregistrer pour voter"}""",
+    #                            content_type="application/json")
+    #
+    #    comment = Comment.objects.get(pk=request.POST['message'])
+    #    if (comment.user == request.user):
+    #        return HttpResponse(u"""{"success":false, "message":"Vous ne pouvez pas voter pour vous même !!"}""",
+    #                            content_type="application/json")
+    #
+    #    if LikeDislike.objects.filter(comment=comment, user=request.user).count() > 0:
+    #        return HttpResponse(u'''{"success":false, "message":"Vous ne pouvez plus voter pour ce message"}''',
+    #                            content_type="application/json")
+    #
+    #    LikeDislike.objects.create(
+    #        user=request.user,
+    #        comment=comment,
+    #        like=True
+    #    )
+    #
+    #    comment.likeit += 1
+    #    comment.save()
+    #
+    #    if comment.user.get_profile().accept_notification and not settings.IS_LOCAL and not settings.IS_TESTING:
+    #        notification_send(settings.BANDCOCHON_CONFIG.EmailTemplates.user_like,
+    #                          comment.user.email,
+    #                          RequestContext(request, {
+    #                            'username' : request.user.username,
+    #                            'message' : comment.content,
+    #                            'url' : comment.get_absolute_url()
+    #                          })
+    #        )
+    #
+    #    agreeiers = []
+    #    for u in comment.get_agreeiers():
+    #        agreeiers.append({
+    #            'username' : u.user.username,
+    #            'avatar': u.user.get_profile().avatar_or_default()
+    #        })
+    #
+    #    return HttpResponse(u"""{"success": true, "message": "Votre vote a été pris en compte", "agreeiers" : %s}"""
+    #                        % json.dumps(agreeiers, ensure_ascii=False), content_type="application/json")
+    #
+    #return HttpResponseBadRequest('')
 
 
 def dislike_it(request):
