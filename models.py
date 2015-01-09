@@ -126,7 +126,7 @@ SMILEYS = (
     (r'\>:\)|\>:-\)|\]:-\)|\]:\)',  'devilish'),
     (r'8\||8-\||B\)|B-\)',          'cool'),
     (r":'\(|:'-\(",                 'crying'),
-    (r':\$',                         'embarrassed'),
+    (r':\$',                        'embarrassed'),
     (r'8\)|8-\)',                   'glasses'),
     (r':\*|:-\*',                   'kiss'),
     (r':D|:-D',                     'laugh'),
@@ -146,12 +146,12 @@ SMILEYS = (
 )
 
 class CommentManager(models.Manager):
-    def getForParent(self, parent):
-        data = cache.get('get_for_parent-%s' % parent.url)
-        if data is None:
-            data = list(super(CommentManager, self).get_query_set().filter(parent=parent, visible=True, trash=False))
-            cache.set('get_for_parent-%s' % parent.url, data)
-        return cache
+    #def getForParent(self, parent):
+    #    data = cache.get('get_for_parent-%s' % parent.url)
+    #    if data is None:
+    #        data = list(super(CommentManager, self).get_query_set().filter(parent=parent, visible=True, trash=False))
+    #        cache.set('get_for_parent-%s' % parent.url, data)
+    #    return cache
 
     def get_for_url(self, url, count=-1):
         """
@@ -266,22 +266,76 @@ class CommentManager(models.Manager):
 
 
 class Comment(models.Model):
-    url = models.CharField(max_length=255, db_index=True,
-                           verbose_name="Internal URL", help_text="Internal site url for the comment")
-    content = models.TextField(verbose_name="Commentaire")
+    url = models.CharField(
+        max_length=255,
+        db_index=True,
+        verbose_name=_("Internal URL"),
+        help_text=_("Internal site url for the comment")
+    )
+    
+    content = models.TextField(
+        verbose_name="Commentaire"
+    )
+    
     submission_date = models.DateTimeField()
-    parent = models.ForeignKey('Comment', db_index=True, null=True, blank=True)
-    user = models.ForeignKey(AuthUser, db_index=True, null=True, blank=True, related_name="com_user")
-    external_user = models.CharField(max_length=40, blank=True, null=True)
-    moderate = models.BooleanField(default=False)
-    visible = models.BooleanField(default=False, db_index=True)
-    trash = models.BooleanField(default=False, db_index=True)
-    ip = models.IPAddressField(blank=True, null=True)
-    is_message = models.BooleanField(default=False)
-    message_url = models.CharField(max_length=255, blank=True, null=True)
+    
+    parent = models.ForeignKey(
+        self,
+        db_index=True,
+        null=True,
+        blank=True
+    )
+    
+    user = models.ForeignKey(
+        AuthUser,
+        db_index=True,
+        null=True,
+        blank=True,
+        related_name="com_user"
+    )
+    
+    external_user = models.CharField(
+        max_length=40,
+        blank=True,
+        null=True
+    )
+    
+    moderate = models.BooleanField(
+        default=False
+    )
+    
+    visible = models.BooleanField(
+        default=False,
+        db_index=True
+    )
+    
+    trash = models.BooleanField(
+        default=False,
+        db_index=True
+    )
+    
+    ip = models.IPAddressField(
+        blank=True,
+        null=True
+    )
+    
+    is_message = models.BooleanField(
+        default=False
+    )
+    
+    message_url = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True
+    )
 
-    likeit = models.IntegerField(default=0)
-    dislikeit = models.IntegerField(default=0)
+    likeit = models.IntegerField(
+        default=0
+    )
+    
+    dislikeit = models.IntegerField(
+        default=0
+    )
 
     objects = CommentManager()
 
