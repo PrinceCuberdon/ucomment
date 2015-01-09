@@ -1,0 +1,9 @@
+{% load ucomment_tags %}
+
+{# Load all comments for this page #}
+{% ucomment_get_for_uri PAGE_URI %}
+
+{# Display comments #}
+{% for comment in ucomment_get_comments %}
+    {% include 'ucomment/single_comment.html' %}
+{% endfor %}

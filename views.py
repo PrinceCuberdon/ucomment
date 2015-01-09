@@ -9,11 +9,11 @@ import re
 import hashlib
 import time
 
-from PIL import Image
+#from PIL import Image
 
 from django.contrib.auth.decorators import login_required
 from django.template import loader, RequestContext
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseRedirect
 from django.contrib.sites.models import Site
 from django.conf import settings
 from django.db.models import Q
@@ -22,28 +22,23 @@ from django.shortcuts import render_to_response, render
 from django.views.generic import TemplateView
 from django.views.decorators.csrf import csrf_exempt
 
-from core.bandcochon.models import Picture
 from .models import Comment, LikeDislike, CommentPref, CommentAbuse
-
-from libs import MustBeAjaxMixin
-from libs.notification import ajax_log, notification_send, Notification
-from core.common import convert_date
 
 
 class BookView(TemplateView):
-    template_name = settings.UCOMMENT_TEMPLATE
+    template_name = getattr(settings, "UCOMMENT_TEMPLATE", "ucomment/comments.html")
 
     def get_context_data(self, **kwargs):
         # Call the context
         context = super(BookView, self).get_context_data(**kwargs)
-        context['book_comments'] = Comment.objects.getForUrl('/', 25)
+        context['book_comments'] = Comment.objects.get_for_url('/', 25)
         context['display_conn'] = True
 
         return context
 
 
 class BookViewNext(TemplateView):
-    template_name = settings.UCOMMENT_NEXT_TEMPLATE
+    template_name = getattr(settings, "UCOMMENT_TEMPLATE", "ucomment/comments.html")
 
     def get(self, request, *args, **kwargs):
         if not request.is_ajax() or not request.method == 'GET':
@@ -56,7 +51,6 @@ class BookViewNext(TemplateView):
             'book_comments': list(comments),
             'display_conn': False
         })
-
 
 def book_next(request):
     """ Get next messages on the wall as JSON """
@@ -72,12 +66,11 @@ def book_next(request):
     return HttpResponseBadRequest('')
 
 
-@csrf_exempt
 def postmessage(request):
     """ Post a message as AJAX """
     try:
         if request.method == 'POST' and request.is_ajax():
-            if CommentPref.objects.get_pref().only_registred == True and request.user.is_authenticated() == False:
+            if CommentPref.objects.get_preferences().only_registred == True and request.user.is_authenticated() == False:
                 ajax_log('ucomment.views.postmessage: Try to post when not authenticated. IP address: %s' %
                          request.META['REMOTE_ADDR'])
                 return HttpResponseBadRequest('')
@@ -158,64 +151,75 @@ def postmessage(request):
     return HttpResponseBadRequest('')
 
 
-@csrf_exempt
-def agree(request):
-    """ Agree a comment
-    @TODO: Translate messages
+def like_it(request, comment_id):
     """
-    try:
-        if request.is_ajax() and request.method == 'POST':
-            if not request.user.is_authenticated() and CommentPref.objects.get_pref().only_registred == True:
-                return HttpResponse(u"""{"success":false, "message":"Vous devez vous enregistrer pour voter"}""",
-                                    content_type="application/json")
+    Like a comment in both classical and AJAX way. In all cases, the
+    user must be authenticated. In non-AJAX case the user is redirected where
+    he comes from.
+    """
+    if request.user.is_authenticated():
+        if request.method == 'GET':
+            comment = Comment.objects.filter(pk=comment_id)
+            if comment.exists():
+                comment = comment.get()
+                # Ensure the user didn't vote yet. If not allow the vote
+                if not LikeDislike.objects.filter(user=request.user, comment=comment).count():
+                    LikeDislike.objects.create(like=True, user=request.user, comment=comment)
+                
+        elif request.method == 'PUT':
+            pass
 
-            comment = Comment.objects.get(pk=request.POST['message'])
-            if (comment.user == request.user):
-                return HttpResponse(u"""{"success":false, "message":"Vous ne pouvez pas voter pour vous même !!"}""",
-                                    content_type="application/json")
+    if not request.is_ajax():
+        return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+    
+    
+    if request.is_ajax() and request.method == 'POST':
+        if not request.user.is_authenticated() and CommentPref.objects.get_preferences().only_registred == True:
+            return HttpResponse(u"""{"success":false, "message":"Vous devez vous enregistrer pour voter"}""",
+                                content_type="application/json")
 
-            if LikeDislike.objects.filter(comment=comment, user=request.user).count() > 0:
-                return HttpResponse(u'''{"success":false, "message":"Vous ne pouvez plus voter pour ce message"}''',
-                                    content_type="application/json")
+        comment = Comment.objects.get(pk=request.POST['message'])
+        if (comment.user == request.user):
+            return HttpResponse(u"""{"success":false, "message":"Vous ne pouvez pas voter pour vous même !!"}""",
+                                content_type="application/json")
 
-            LikeDislike.objects.create(
-                user=request.user,
-                comment=comment,
-                like=True
+        if LikeDislike.objects.filter(comment=comment, user=request.user).count() > 0:
+            return HttpResponse(u'''{"success":false, "message":"Vous ne pouvez plus voter pour ce message"}''',
+                                content_type="application/json")
+
+        LikeDislike.objects.create(
+            user=request.user,
+            comment=comment,
+            like=True
+        )
+
+        comment.likeit += 1
+        comment.save()
+
+        if comment.user.get_profile().accept_notification and not settings.IS_LOCAL and not settings.IS_TESTING:
+            notification_send(settings.BANDCOCHON_CONFIG.EmailTemplates.user_like,
+                              comment.user.email,
+                              RequestContext(request, {
+                                'username' : request.user.username,
+                                'message' : comment.content,
+                                'url' : comment.get_absolute_url()
+                              })
             )
 
-            comment.likeit += 1
-            comment.save()
+        agreeiers = []
+        for u in comment.get_agreeiers():
+            agreeiers.append({
+                'username' : u.user.username,
+                'avatar': u.user.get_profile().avatar_or_default()
+            })
 
-            if comment.user.get_profile().accept_notification and not settings.IS_LOCAL and not settings.IS_TESTING:
-                notification_send(settings.BANDCOCHON_CONFIG.EmailTemplates.user_like,
-                                  comment.user.email,
-                                  RequestContext(request, {
-                                    'username' : request.user.username,
-                                    'message' : comment.content,
-                                    'url' : comment.get_absolute_url()
-                                  })
-                )
-
-            agreeiers = []
-            for u in comment.get_agreeiers():
-                agreeiers.append({
-                    'username' : u.user.username,
-                    'avatar': u.user.get_profile().avatar_or_default()
-                })
-
-            return HttpResponse(u"""{"success": true, "message": "Votre vote a été pris en compte", "agreeiers" : %s}"""
-                                % json.dumps(agreeiers, ensure_ascii=False), content_type="application/json")
-        else:
-            ajax_log("ucomment.views.agree: Not an ajax or a post ; %s" % request.META['REMOTE_ADDR'])
-    except Exception as error:
-        ajax_log("ucomment.views.agree : %s: IP : %s" % (error, request.META['REMOTE_ADDR']))
+        return HttpResponse(u"""{"success": true, "message": "Votre vote a été pris en compte", "agreeiers" : %s}"""
+                            % json.dumps(agreeiers, ensure_ascii=False), content_type="application/json")
 
     return HttpResponseBadRequest('')
 
 
-@csrf_exempt
-def disagree(request):
+def dislike_it(request):
     """ Disagree a comment """
     try:
         if request.is_ajax() and request.method == 'POST':

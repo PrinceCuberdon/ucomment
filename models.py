@@ -8,6 +8,9 @@ import re
 import shutil
 import os
 
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
 from django.utils.translation import ugettext_lazy as _
 from django.db import models, connection
 from django.contrib.auth.models import User as AuthUser
@@ -24,12 +27,8 @@ def convert_date(value):
 class CommentPrefManager(models.Manager):
     def get_preferences(self):
         """ Return preferences for Comment. Create with default values if not exists """
-        try:
-            return CommentPref.objects.lastest('id')
-        except:
-            pass
-
-        return CommentPref.objects.create()
+        prefs = self.get_queryset().all()
+        return CommentPref.objects.create() if prefs.count() == 0 else list(prefs)[-1]
 
 
 class CommentPref(models.Model):
@@ -46,11 +45,6 @@ class CommentPref(models.Model):
         help_text=_("Use the like and dislike system.")
     )
     
-    # TODO: Remove this
-    publish_on_submit = models.BooleanField(
-        default=True
-    )
-    
     register_ip = models.BooleanField(
         default=True,
         verbose_name=_("Register IP"),
@@ -61,13 +55,6 @@ class CommentPref(models.Model):
         default=3,
         verbose_name=_("Maximum abuse"),
         help_text=_("Maximum abuse count before moderation")
-    )
-    
-    # TODO: Remove this
-    use_notification = models.BooleanField(
-        default=False,
-        verbose_name="Notification",
-        help_text=u"Use notification inside the Wall"
     )
 
     objects = CommentPrefManager()
@@ -82,13 +69,51 @@ class CommentAbuse(models.Model):
 
 
 class LikeDislike(models.Model):
-    comment = models.ForeignKey("Comment")
-    like = models.BooleanField(default=False, db_index=True)
-    dislike = models.BooleanField(default=False, db_index=True)
-    user = models.ForeignKey(AuthUser, db_index=True, null=True, blank=True, related_name="ld_user")
+    """
+    Save if an user has yet voted for a comment
+    """
+    comment = models.ForeignKey(
+        "Comment"
+    )
+    
+    like = models.BooleanField(
+        default=False,
+        db_index=True
+    )
+    
+    dislike = models.BooleanField(
+        default=False,
+        db_index=True
+    )
+    
+    user = models.ForeignKey(
+        AuthUser,
+        db_index=True,
+        null=True,
+        blank=True,
+        related_name="ld_user"
+    )
 
     def __unicode__(self):
         return self.comment.url
+    
+
+@receiver(post_save, sender=LikeDislike)
+def increase_like_dislike(sender, **kwargs):
+    """
+    When a LikeDislike entry is created, the related comment entry
+    is updated.
+    """
+    comment = kwargs['instance'].comment
+    print kwargs['instance'].like, kwargs['instance'].dislike
+    if kwargs['instance'].like:
+        comment.likeit += 1
+        
+    elif kwargs['instance'].dislike:
+        comment.dislikeit += 1
+        
+    comment.save()
+        
 
 
 NEW_YOUTUBE_CODE = '''<div class="videocontainer"><iframe width="560" height="315" src="https://www.youtube.com/embed/\\1" frameborder="0" allowfullscreen></iframe></div>'''
@@ -129,35 +154,36 @@ class CommentManager(models.Manager):
             cache.set('get_for_parent-%s' % parent.url, data)
         return cache
 
-    def getForUrl(self, url, count=-1):
+    def get_for_url(self, url, count=-1):
         """
         Get last comments for the url
         """
-        if count == -1:
-            # Get all
-            comments = list(self.get_query_set().filter(visible=True, trash=False, url=url, parent=None))
-        else:
-            comments = list(self.get_query_set().filter(visible=True, trash=False, url=url, parent=None)[:count])
-
-        # Get and regroup sons
-        comments_son = {}
-        for cs in list(self.get_query_set().filter(parent__in=[comment.pk for comment in comments]).order_by('submission_date')):
-            if not cs.parent.pk in comments_son:
-                comments_son[cs.parent.pk] = []
-            comments_son[cs.parent.pk].append(cs)
-
-        # Attribute sons to parents
-        for com in comments:
-            if com.pk in comments_son:
-                com.get_response = comments_son[com.pk]
+        data = cache.get('get-for-url-{0}-{1}'.format(url, count))
+        if not data:
+            if count == -1:
+                # Get all
+                comments = list(self.get_queryset().filter(visible=True, trash=False, url=url, parent=None))
             else:
-                com.get_response = None
-
-        return comments
+                comments = list(self.get_queryset().filter(visible=True, trash=False, url=url, parent=None)[:count])
     
-    def get_for_url(self, url, count=-1):
-        return self.getForUrl(url, count)
+            # Get and regroup sons
+            comments_son = {}
+            for cs in list(self.get_queryset().filter(parent__in=[comment.pk for comment in comments]).order_by('submission_date')):
+                if not cs.parent.pk in comments_son:
+                    comments_son[cs.parent.pk] = []
+                comments_son[cs.parent.pk].append(cs)
     
+            # Attribute sons to parents
+            for com in comments:
+                if com.pk in comments_son:
+                    com.get_response = comments_son[com.pk]
+                else:
+                    com.get_response = None
+            data = comments
+            cache.set('get-for-url-{0}-{1}'.format(url, count), data)
+            
+        return data
+        
     def serialize(self, url):
         """ Serialize commentaries and responses for a particular URL.
         mainly used for json formated communication """
@@ -175,69 +201,69 @@ class CommentManager(models.Manager):
 
         return result
 
-    def get_with_children(self, url, limit=0):
-        """
-        Get all comments for the URL and the children too
-        """
-        result = []
-        cursora = connection.cursor()
-        cursorb = connection.cursor()
-        if limit > 0:
-            limit = "LIMIT %d" % int(limit)
-        else:
-            limit = ''
-        cursora.execute("""
-        SELECT co.id, co.submission_date, au.username, co.content, ut.avatar
-        FROM ucomment_comment co, auth_user au, bandcochon_utilisateur ut
-        WHERE co.url='%s' AND co.visible=1 AND co.user_id=au.id AND ut.user_id=au.id
-        ORDER BY co.submission_date DESC %s""" % (url, limit))
-        cols = [d[0] for d in cursora.description]
-        for com in cursora.fetchall():
-            com = list(com)
-            com[1] = convert_date(com[1])
-            parent = dict(zip(cols, com))
-            parent['like'], parent['dislike'] = self._get_like_dislike_for(parent['id'])
-
-
-            cursorb.execute("""
-            SELECT co.id, co.submission_date, au.username, co.content
-            FROM ucomment_comment co, auth_user au
-            WHERE co.url='%s' AND co.visible=1 AND co.user_id=au.id
-            """ % parent['id'])
-            children = []
-            for child in cursorb.fetchall():
-                child = list(child)
-                child[1] = convert_date(child[1])
-                child_ = dict(zip(cols, child))
-                child_['like'], child_['dislike'] = self._get_like_dislike_for(child_['id'])
-                children.append(child_)
-            parent['responses'] = children
-            result.append(parent)
-        return result
-
-    def _get_like_dislike_for(self, id_):
-        """
-        Return like and dislike for a message
-        """
-        cursor = connection.cursor()
-        cursor.execute("""
-        SELECT     au.username, ut.avatar
-        FROM       ucomment_likedislike ud
-        INNER JOIN auth_user au ON(ud.user_id=au.id)
-        INNER JOIN bandcochon_utilisateur ut ON(au.id=ut.user_id)
-        WHERE ud.comment_id='%d' AND ud.like='1' """ % id_)
-        cols = [d[0] for d in cursor.description]
-        likeit = [dict(zip(cols, row)) for row in cursor.fetchall()]
-
-        cursor.execute("""
-        SELECT     au.username, ut.avatar
-        FROM       ucomment_likedislike ud
-        INNER JOIN auth_user au ON(ud.user_id=au.id)
-        INNER JOIN bandcochon_utilisateur ut ON(au.id=ut.user_id)
-        WHERE ud.comment_id='%d' AND ud.dislike='1' """ % id_)
-        dislike_it = [dict(zip(cols, row)) for row in cursor.fetchall()]
-
-        return likeit, dislike_it
+    #def get_with_children(self, url, limit=0):
+    #    """
+    #    Get all comments for the URL and the children too
+    #    """
+    #    result = []
+    #    cursora = connection.cursor()
+    #    cursorb = connection.cursor()
+    #    if limit > 0:
+    #        limit = "LIMIT %d" % int(limit)
+    #    else:
+    #        limit = ''
+    #    cursora.execute("""
+    #    SELECT co.id, co.submission_date, au.username, co.content, ut.avatar
+    #    FROM ucomment_comment co, auth_user au, bandcochon_utilisateur ut
+    #    WHERE co.url='%s' AND co.visible=1 AND co.user_id=au.id AND ut.user_id=au.id
+    #    ORDER BY co.submission_date DESC %s""" % (url, limit))
+    #    cols = [d[0] for d in cursora.description]
+    #    for com in cursora.fetchall():
+    #        com = list(com)
+    #        com[1] = convert_date(com[1])
+    #        parent = dict(zip(cols, com))
+    #        parent['like'], parent['dislike'] = self._get_like_dislike_for(parent['id'])
+    #
+    #
+    #        cursorb.execute("""
+    #        SELECT co.id, co.submission_date, au.username, co.content
+    #        FROM ucomment_comment co, auth_user au
+    #        WHERE co.url='%s' AND co.visible=1 AND co.user_id=au.id
+    #        """ % parent['id'])
+    #        children = []
+    #        for child in cursorb.fetchall():
+    #            child = list(child)
+    #            child[1] = convert_date(child[1])
+    #            child_ = dict(zip(cols, child))
+    #            child_['like'], child_['dislike'] = self._get_like_dislike_for(child_['id'])
+    #            children.append(child_)
+    #        parent['responses'] = children
+    #        result.append(parent)
+    #    return result
+    #
+    #def _get_like_dislike_for(self, id_):
+    #    """
+    #    Return like and dislike for a message
+    #    """
+    #    cursor = connection.cursor()
+    #    cursor.execute("""
+    #    SELECT     au.username, ut.avatar
+    #    FROM       ucomment_likedislike ud
+    #    INNER JOIN auth_user au ON(ud.user_id=au.id)
+    #    INNER JOIN bandcochon_utilisateur ut ON(au.id=ut.user_id)
+    #    WHERE ud.comment_id='%d' AND ud.like='1' """ % id_)
+    #    cols = [d[0] for d in cursor.description]
+    #    likeit = [dict(zip(cols, row)) for row in cursor.fetchall()]
+    #
+    #    cursor.execute("""
+    #    SELECT     au.username, ut.avatar
+    #    FROM       ucomment_likedislike ud
+    #    INNER JOIN auth_user au ON(ud.user_id=au.id)
+    #    INNER JOIN bandcochon_utilisateur ut ON(au.id=ut.user_id)
+    #    WHERE ud.comment_id='%d' AND ud.dislike='1' """ % id_)
+    #    dislike_it = [dict(zip(cols, row)) for row in cursor.fetchall()]
+    #
+    #    return likeit, dislike_it
 
 
 class Comment(models.Model):

@@ -49,8 +49,23 @@ class CommentAdmin(admin.ModelAdmin):
     #class Media:
     #    js = TINYMCE_JS
 
+class CommentPrefAdmin(admin.ModelAdmin):
+    list_display = (
+        '__unicode__',
+        'only_registred',
+        'use_like_dislike',
+        'register_ip',
+        'abuse_max'
+    )
+    
+    list_editable = (
+        'only_registred',
+        'use_like_dislike',
+        'register_ip',
+        'abuse_max'        
+    )
 
 admin.site.register(Comment, CommentAdmin)
-admin.site.register(CommentPref)
+admin.site.register(CommentPref, CommentPrefAdmin)
 admin.site.register(LikeDislike)
 admin.site.register(CommentAbuse)

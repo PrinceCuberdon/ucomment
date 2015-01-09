@@ -5,6 +5,8 @@ import datetime
 import locale
 import platform
 
+from django.test import Client
+
 from .models import convert_date, CommentPref
 
 class ConvertDateTest(TestCase):
@@ -37,3 +39,9 @@ class CommentPrefManagerTest(TestCase):
         pref = CommentPref.objects.get_preferences()
         self.assertIsNotNone(pref)        
         self.assertIsInstance(pref, CommentPref)
+        
+        
+class ContextProcessorTest(TestCase):
+    def test_page_uri(self):
+        c = Client()
+        

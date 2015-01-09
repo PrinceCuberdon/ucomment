@@ -1,5 +1,5 @@
 <div class="right">
-    <span class="wait" data-rel="{{comment.pk}}"></span>
+    <span class="wait" data-rel="{{ comment.pk }}"></span>
     <span class="message-comment" data-rel="{{comment.pk}}"></span>
     <span class="agree-count {%if user.is_authenticated%}agree{%else%}need-connection{%endif%}" data-rel="{{comment.pk}}" data-wall="{{ user.username }} aime le message de {{ comment.user.username }}" data-wall-url="#{{ comment.pk }}">
         {{comment.likeit}}
@@ -21,7 +21,7 @@
     <span class="disagree-count {%if user.is_authenticated%}disagree{%else%}need-connection{%endif%}" data-rel="{{comment.pk}}"  data-wall="{{ user.username }} n'apprecie pas le message de {{ comment.user.username }}" data-wall-url="#{{ comment.pk }}">
         {{comment.dislikeit}}
     </span>
-    {%with comment.get_dislikeits as dislikeits%}
+    {% with comment.get_dislikeits as dislikeits %}
         <div class="comment-user" data-rel="{{comment.pk}}" data-role="dislikeit">
             <div class="comment-title">Je ne suis pas d'accord</div>
             {%if dislikeits%}
@@ -31,5 +31,5 @@
                 {%endfor%}
             {%endif%}
         </div>
-    {%endwith%}
+    {% endwith %}
 </div>

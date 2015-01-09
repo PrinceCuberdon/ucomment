@@ -1,0 +1,6 @@
+{{ comment.content }} par {{ comment.user.username }}
+
+{% if ucomment_get_preferences.use_like_dislike %}
+    <a href="{% url 'ucomment_like_it' comment.id %}" title="{{ comment.likeit }} people like it"><small>I like</small></a>
+    <a href="{% url 'ucomment_dislike_it' comment.id %}" title="{{ comment.dislikeit }} people don't like it"><small>I don't like</small></a>
+{% endif %}
