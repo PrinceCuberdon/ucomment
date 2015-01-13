@@ -1,0 +1,15 @@
+{#                              #}
+{#  LIKE / DISLIKE / ABUSE BAR  #}
+{#                              #}
+{% load i18n %}
+{% if ucomment_get_preferences.use_like_dislike %}
+    {% if user != comment.user %} {# Users can't vote for themselves #}
+    <div class="ucomment-likedislike">
+        <a href="{% url 'ucomment_like_it' comment.id %}" data-ucomment-like="{{ comment.pk }}" title="{{ comment.likeit }} {% trans 'people like it' %}">{% trans 'I like'%}</a>
+        |
+        <a href="{% url 'ucomment_dislike_it' comment.id %}" data-ucomment-dislike="{{ comment.pk }}" title="{{ comment.dislikeit }} people don't like it">{% trans "I don't like" %}</a>
+        |
+        <a href="#" title="{% trans 'Report an abuse to the web site administrator' %}">{% trans 'Report abuse' %}</a>
+    </div>
+    {% endif %}
+{% endif %}

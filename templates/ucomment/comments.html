@@ -4,6 +4,8 @@
 {% ucomment_get_for_uri PAGE_URI %}
 
 {# Display comments #}
+{% include 'ucomment/form.html' %}
+
 {% for comment in ucomment_get_comments %}
     {% include 'ucomment/single_comment.html' %}
 {% endfor %}

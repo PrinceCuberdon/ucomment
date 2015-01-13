@@ -183,23 +183,23 @@ class CommentManager(models.Manager):
             
         return data
         
-    def serialize(self, url):
-        """ Serialize commentaries and responses for a particular URL.
-        mainly used for json formated communication """
-        result = []
-        for com in list(Comment.objects.filter(url=url, visible=True, trash=False, parent=None)):
-            comment = {
-                'message': com._get_info(),
-                'response': []
-            }
-
-            for resp in list(Comment.objects.filter(visible=True, trash=False, parent=com)):
-                comment['response'].append(resp._get_info())
-
-            result.append(comment)
-
-        return result
-
+    #def serialize(self, url):
+    #    """ Serialize commentaries and responses for a particular URL.
+    #    mainly used for json formated communication """
+    #    result = []
+    #    for com in list(Comment.objects.filter(url=url, visible=True, trash=False, parent=None)):
+    #        comment = {
+    #            'message': com._get_info(),
+    #            'response': []
+    #        }
+    #
+    #        for resp in list(Comment.objects.filter(visible=True, trash=False, parent=com)):
+    #            comment['response'].append(resp._get_info())
+    #
+    #        result.append(comment)
+    #
+    #    return result
+    #
     #def get_with_children(self, url, limit=0):
     #    """
     #    Get all comments for the URL and the children too
@@ -280,7 +280,7 @@ class Comment(models.Model):
     submission_date = models.DateTimeField()
     
     parent = models.ForeignKey(
-        self,
+        'self',
         db_index=True,
         null=True,
         blank=True
@@ -297,7 +297,8 @@ class Comment(models.Model):
     external_user = models.CharField(
         max_length=40,
         blank=True,
-        null=True
+        null=True,
+        default=''
     )
     
     moderate = models.BooleanField(
@@ -316,7 +317,8 @@ class Comment(models.Model):
     
     ip = models.IPAddressField(
         blank=True,
-        null=True
+        null=True,
+        default=''
     )
     
     is_message = models.BooleanField(

@@ -14,23 +14,31 @@ urlpatterns = patterns('',
         name="ucomment_book"
     ),
 
-    url(r'^book/next/$', 'ucomment.views.book_next'),
+    #url(r'^book/next/$', 'ucomment.views.book_next'),
 
     url(
         r'^ucomment/like/(\d+)/$',
-        'ucomment.views.like_it',
+        'ucomment.views.like_dislike',
+        {'like':False, 'dislike': True},
         name='ucomment_like_it'
     ),
 
     url(
         r'^ucomment/dislike/(\d+)/$',
-        'ucomment.views.dislike_it',
+        'ucomment.views.like_dislike',
+        {'like':False, 'dislike': True},
         name='ucomment_dislike_it'
     ),
     
-    url(r'^ucomment/postmessage/$',  'ucomment.views.postmessage',    name='ucomment_postmessage'),
-    url(r'^ucomment/moderate/$',     'ucomment.views.moderate',       name='ucomment_moderate'),
-    url(r'^ucomment/nextcomment/$',  'ucomment.views.nextcomment',    name='ucomment_nextcomment'),
-    url(r'^ucomment/showlast/$',     'ucomment.views.showlast',       name='ucomment_showlast'),
-    url(r'^ucomment/sendphoto/$',    'ucomment.views.sendphoto',      name="ucomment_sendphoto"),
+    url(
+        r'^ucomment/add/$',
+        'ucomment.views.add',
+        name='ucomment_add_comment'
+    ),
+    #
+    #url(r'^ucomment/postmessage/$',  'ucomment.views.postmessage',    name='ucomment_postmessage'),
+    #url(r'^ucomment/moderate/$',     'ucomment.views.moderate',       name='ucomment_moderate'),
+    #url(r'^ucomment/nextcomment/$',  'ucomment.views.nextcomment',    name='ucomment_nextcomment'),
+    #url(r'^ucomment/showlast/$',     'ucomment.views.showlast',       name='ucomment_showlast'),
+    #url(r'^ucomment/sendphoto/$',    'ucomment.views.sendphoto',      name="ucomment_sendphoto"),
 )

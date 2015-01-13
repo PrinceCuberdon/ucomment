@@ -1,22 +1,15 @@
-{%load i18n %}
+{#                          #}
+{# Display a single comment #}
+{#                          #}
+{% load i18n %}
 <section class="ucomment" id="comment-{{ comment.pk }}">
     <header class="ucomment">
         {% trans 'By' %} <strong>{{ comment.user }}</strong>
         <small>{% trans 'On' %} {{ comment.submission_date }}</small>
-
-        {% if ucomment_get_preferences.use_like_dislike %}
-            <div style="float:right;">
-                <a href="{% url 'ucomment_like_it' comment.id %}" title="{{ comment.likeit }} {% trans 'people like it' %}">{% trans 'I like'%}</a>
-                |
-                <a href="{% url 'ucomment_dislike_it' comment.id %}" title="{{ comment.dislikeit }} people don't like it">{% trans "I don't like" %}</a>
-                |
-                <a href="#" title="{% trans 'Report an abuse to the web site administrator' %}">{% trans 'Report abuse' %}</a>
-            </div>
-            <br style="clear: both" />
-        {% endif %}
+        {% include 'ucomment/like-dislike.html' %}
     </header>
     <article class="ucomment">
-        {{ comment.content }}
+        {{ comment.content|safe }}
     </article>
     <footer class="ucomment">
         <div style="float:right">

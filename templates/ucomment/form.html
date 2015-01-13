@@ -1,0 +1,11 @@
+{% load ucomment_tags i18n %}
+<form method="post" action="{% url 'ucomment_add_comment' %}" class="ucomment">
+    {% csrf_token %}
+    {% ucomment_path %}
+    <div class="ucomment-form-row">
+        <textarea class="ucomment" name="ucomment-content"></textarea>
+    </div>
+    <div class="ucomment-form-row">
+        <input type="submit" value="{% trans 'Send' %}" />
+    </div>
+</form>
