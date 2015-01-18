@@ -4,6 +4,7 @@
 from django import template
 from ucomment.models import Comment
 
+
 register = template.Library()
 
 @register.tag

@@ -2,41 +2,41 @@
 # ucomment is part of Band Cochon
 # Band Cochon (c) Prince Cuberdon 2011 and Later <princecuberdon@bandcochon.fr>
 
-import datetime
 import json
-import os
-import re
-import hashlib
-import time
 
 #from PIL import Image
 
 from django.utils.translation import ugettext_lazy as _
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
-from django.template import loader, RequestContext
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseRedirect, Http404
+from django.http import (HttpResponse, HttpResponseRedirect, Http404)
+from django.template.loader import render_to_string
 from django.contrib.sites.models import Site
 from django.conf import settings
-from django.db.models import Q
-from django.middleware.csrf import get_token
-from django.shortcuts import render_to_response, render
 from django.views.generic import TemplateView
-from django.views.decorators.csrf import csrf_exempt
 
-from .models import Comment, LikeDislike, CommentPref, CommentAbuse
-from .signals import validate_comment
+from django.contrib import messages
+
+from .models import Comment, LikeDislike, CommentPref
+from .signals import validate_comment, comment_saved, report_abuse
+
 
 class BookView(TemplateView):
-    template_name = getattr(settings, "UCOMMENT_TEMPLATE", "ucomment/comments.html")
+    """
+    The book view is called to display all messages from the url "/"
+    """
+    template_name = getattr(settings,
+                            "UCOMMENT_TEMPLATE",
+                            "ucomment/comments.html")
 
     def get_context_data(self, **kwargs):
         # Call the context
         context = super(BookView, self).get_context_data(**kwargs)
         context['book_comments'] = Comment.objects.get_for_url('/', 25)
         context['display_conn'] = True
-
+        
         return context
+
 
 #
 #class BookViewNext(TemplateView):
@@ -71,120 +71,172 @@ class BookView(TemplateView):
 def add(request):
     """ Post a message as AJAX """
     config = CommentPref.objects.get_preferences()
-    
     if config.only_registred and not request.user.is_authenticated():
+        if request.is_ajax():
+            return HttpResponse(json.dumps({
+                'success': False,
+                'message': 'You must be authenticated in order to post'
+            }), content_type="application/json")
+
         return HttpResponse("Error, you must be authenticated")
-    
+
     if request.method == 'POST':
-        content = request.POST.get('ucomment-content')
-        referer = request.POST.get('ucomment-path', '/')
+        if request.is_ajax():
+            content = json.loads(request.body)
+        else:
+            content = request.POST.get('ucomment-content')
+
+        site_name = 'http{0}://{1}'.format(
+            's' if request.is_secure() else '',
+            Site.objects.get_current().domain
+        )
+        
+        referer = request.POST.get('ucomment-path', request.META['HTTP_REFERER'].replace(site_name, ''))
+
+        if not content:
+            if request.is_ajax():
+                return HttpResponse(json.dumps({
+                    'success': False,
+                    'message': 'The content is empty'
+                }), content_type="application/json")
+            
+            messages.add_message(request, messages.ERROR, "The content is empty")
+            return HttpResponseRedirect(referer)
         
         # Emit the signal and catch result
         result = True
+        sig_messages = []
         for f, r in validate_comment.send(None, request=request, content=content):
-            result &= r
-        
+            result &= r[0]
+            if not r[0]:
+                sig_messages.append(r[1])
+
         if result:
-            if content:            
+            if content:
+                if request.is_ajax():
+                    new_content = content['ucomment-content']
+                    referer = content['path']
+                else:
+                    new_content = content
+
                 comment = Comment.objects.create(
                     user=request.user,
                     url=referer,
-                    content=content,
+                    content=new_content,
                     submission_date=timezone.now(),
-                    visible=True
+                    visible=True,
+                    ip=request.META['REMOTE_ADDR'],
                 )
-    
+                comment_saved.send(comment)
+                
                 if request.is_ajax():
                     return HttpResponse(json.dumps({
-                        'success': True
+                        'success': True,
+                        'content': render_to_string('ucomment/single_comment.html', {
+                            'comment': comment,
+                            'user': request.user,
+                            'ucomment_get_preferences': CommentPref.objects.get_preferences()
+                        }),
                     }), content_type="application/json")
 
-        return HttpResponseRedirect(referer)
-    raise Http404("Bad Method")
-        
-def postmessage(request):
-    try:
-        if request.method == 'POST' and request.is_ajax():
-            if CommentPref.objects.get_preferences().only_registred == True and request.user.is_authenticated() == False:
-                ajax_log('ucomment.views.postmessage: Try to post when not authenticated. IP address: %s' %
-                         request.META['REMOTE_ADDR'])
-                return HttpResponseBadRequest('')
-
-            parent = int(request.POST.get('parent', 0))
-            parent = Comment.objects.get(pk=parent) if parent != 0 else None
-            content = request.POST['content']
-            onwallurl = request.POST.get('onwallurl', '/')
-
-            if content:
-                referer = request.POST.get('url', None)
-                if not referer:
-                    referer = "/"
-
-                if not onwallurl and referer == '/' and onwallurl != '/':
-                    referer = request.META['HTTP_REFERER'].replace('http://%s' % Site.objects.get_current().domain, '')
-
-                now = datetime.datetime.now()
-                comment = Comment.objects.create(
-                    url=referer,
-                    content=content,
-                    submission_date=datetime.datetime.now(),
-                    visible=CommentPref.objects.get_pref().publish_on_submit,
-                    ip=request.META['REMOTE_ADDR'],
-                    user=request.user,
-                    parent=parent
-                )
-
-                # Prepare JSON
-                data = {
-                    'username': request.user.username,
-                    'submission_date': convert_date(datetime.datetime.now()),
-                    'knowuser': True,
-                    'avatar': request.user.get_profile().avatar_or_default(),
-                    'userid': request.user.id,
-                    'commentcount': Comment.objects.filter(user=request.user,
-                                                           visible=True,
-                                                           moderate=False).only('id').count(),
-                    'pigstiescount': Picture.objects.filter(user=request.user,
-                                                            trash=False).only('id').count(),
-                    'content': comment.content,
-                    'commentid': comment.id,
-                    'user_authenticated': request.user.is_authenticated(),
-                    'csrf_token': get_token(request),
-                }
-
-                if parent is not None:
-                    data['parentid'] = parent.id
-                else:
-                    data['parentid'] = comment.id
-
-                # Send a email to all users
-                if parent is not None:
-                    comments = list(Comment.objects.filter((Q(parent=parent) &
-                                                            ~Q(user=request.user))).only('user__email'))
-                    mails = {}
-                    for comment in comments:
-                        mails[comment.user.email] = ''
-                    req = RequestContext(request, {
-                        'username':  request.user.username,
-                        'message' : comment.content,
-                        'url' : comment.url
-                    })
-                    if not settings.IS_LOCAL and not settings.IS_TESTING:
-                        notif = Notification(settings.BANDCOCHON_CONFIG.EmailTemplates.user_comment)
-                        for mail in mails.keys():
-                            notif.push(mail, req)
-                        notif.send()
-
-                # Send Json
-                return HttpResponse(json.dumps(data, ensure_ascii=False), content_type="application/json")
         else:
-            ajax_log("ucomment.views.postmessage: Not an AJAX call : %s" % request.META['REMOTE_ADDR'])
+            if request.is_ajax():
+                return HttpResponse(json.dumps({
+                    'success': False,
+                    'message' : '\n'.join(sig_messages)
+                }), content_type="application/json")
 
-    except Exception as e:
-        ajax_log("ucomment.views.postmessage : %s: IP : %s" % (e, request.META['REMOTE_ADDR']))
-
-    return HttpResponseBadRequest('')
-
+            for message in sig_messages:
+                messages.add_message(request, messages.ERROR, message)
+            
+        return HttpResponseRedirect(referer)
+    
+    raise Http404("Bad Method")
+#
+#
+#def postmessage(request):
+#    try:
+#        if request.method == 'POST' and request.is_ajax():
+#            if CommentPref.objects.get_preferences().only_registred == True and request.user.is_authenticated() == False:
+#                ajax_log('ucomment.views.postmessage: Try to post when not authenticated. IP address: %s' %
+#                         request.META['REMOTE_ADDR'])
+#                return HttpResponseBadRequest('')
+#
+#            parent = int(request.POST.get('parent', 0))
+#            parent = Comment.objects.get(pk=parent) if parent != 0 else None
+#            content = request.POST['content']
+#            onwallurl = request.POST.get('onwallurl', '/')
+#
+#            if content:
+#                referer = request.POST.get('url', None)
+#                if not referer:
+#                    referer = "/"
+#
+#                if not onwallurl and referer == '/' and onwallurl != '/':
+#                    referer = request.META['HTTP_REFERER'].replace('http://%s' % Site.objects.get_current().domain, '')
+#
+#                now = datetime.datetime.now()
+#                comment = Comment.objects.create(
+#                    url=referer,
+#                    content=content,
+#                    submission_date=datetime.datetime.now(),
+#                    visible=CommentPref.objects.get_pref().publish_on_submit,
+#                    ip=request.META['REMOTE_ADDR'],
+#                    user=request.user,
+#                    parent=parent
+#                )
+#
+#                # Prepare JSON
+#                data = {
+#                    'username': request.user.username,
+#                    'submission_date': convert_date(datetime.datetime.now()),
+#                    'knowuser': True,
+#                    'avatar': request.user.get_profile().avatar_or_default(),
+#                    'userid': request.user.id,
+#                    'commentcount': Comment.objects.filter(user=request.user,
+#                                                           visible=True,
+#                                                           moderate=False).only('id').count(),
+#                    'pigstiescount': Picture.objects.filter(user=request.user,
+#                                                            trash=False).only('id').count(),
+#                    'content': comment.content,
+#                    'commentid': comment.id,
+#                    'user_authenticated': request.user.is_authenticated(),
+#                    'csrf_token': get_token(request),
+#                }
+#
+#                if parent is not None:
+#                    data['parentid'] = parent.id
+#                else:
+#                    data['parentid'] = comment.id
+#
+#                # Send a email to all users
+#                if parent is not None:
+#                    comments = list(Comment.objects.filter((Q(parent=parent) &
+#                                                            ~Q(user=request.user))).only('user__email'))
+#                    mails = {}
+#                    for comment in comments:
+#                        mails[comment.user.email] = ''
+#                    req = RequestContext(request, {
+#                        'username':  request.user.username,
+#                        'message' : comment.content,
+#                        'url' : comment.url
+#                    })
+#                    if not settings.IS_LOCAL and not settings.IS_TESTING:
+#                        notif = Notification(settings.BANDCOCHON_CONFIG.EmailTemplates.user_comment)
+#                        for mail in mails.keys():
+#                            notif.push(mail, req)
+#                        notif.send()
+#
+#                # Send Json
+#                return HttpResponse(json.dumps(data, ensure_ascii=False), content_type="application/json")
+#        else:
+#            ajax_log("ucomment.views.postmessage: Not an AJAX call : %s" % request.META['REMOTE_ADDR'])
+#
+#    except Exception as e:
+#        ajax_log("ucomment.views.postmessage : %s: IP : %s" % (e, request.META['REMOTE_ADDR']))
+#
+#    return HttpResponseBadRequest('')
+#
 
 @login_required
 def like_dislike(request, comment_id, like=False, dislike=False):
@@ -226,6 +278,17 @@ def like_dislike(request, comment_id, like=False, dislike=False):
 
     return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
     
+
+@login_required
+def report_abuse(request, comment_id):
+    comment = Comment.objects.get(pk=comment_id)
+    comment.abuse_count += 1
+    if comment.abuse_count >= CommentPref.objects.get_preferences().abuse_max:
+        comment.visible = False
+        comment.moderate = True
+    comment.save()
+    #report_abuse.send(comment)
+    return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
 
 
 #@login_required

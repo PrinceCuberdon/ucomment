@@ -18,24 +18,25 @@ class CommentAdmin(admin.ModelAdmin):
         'trash',
         'ip',
         'moderate',
-        'get_abuse_count',
-        'is_message',
+        'abuse_count',
+        'likeit',
+        'dislikeit'
     )
     
     list_editable = (
         'visible',
         'trash',
         'moderate',
+        'likeit',
+        'dislikeit'
     )
     
     list_filter = (
         'url',
         'submission_date',
         'user',
-        'parent',
         'visible',
-        'moderate',
-        'is_message',
+        'moderate'
     )
     
     search_fields = (

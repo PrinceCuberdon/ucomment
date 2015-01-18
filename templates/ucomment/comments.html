@@ -6,6 +6,8 @@
 {# Display comments #}
 {% include 'ucomment/form.html' %}
 
+<div id="ucomment-container">
 {% for comment in ucomment_get_comments %}
     {% include 'ucomment/single_comment.html' %}
 {% endfor %}
+</div>

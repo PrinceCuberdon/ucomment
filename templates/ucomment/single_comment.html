@@ -9,12 +9,19 @@
         {% include 'ucomment/like-dislike.html' %}
     </header>
     <article class="ucomment">
-        {{ comment.content|safe }}
+        {{ comment.content|safe  }}
     </article>
     <footer class="ucomment">
-        <div style="float:right">
+        <div class="ucomment-reply" style="float:right">
             <a href="#">{% trans 'Reply' %}</a>
         </div>
         <br style="clear: both" />
     </footer>
+    {% if comment.get_response %}
+        {% for response in comment.get_response %}
+            {% with response as comment %}
+                {% include 'ucomment/single_comment.html' %}
+            {% endwith %}
+        {% endfor %}
+    {% endif %}
 </section>

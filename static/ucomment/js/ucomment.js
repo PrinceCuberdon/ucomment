@@ -49,12 +49,24 @@ var UComment = (function() {
         
         // Connect form
         document.querySelector('form.ucomment').onsubmit = function(e) {
-            return this.querySelector('textarea').value.trim() !== '';
+            if (this.querySelector('textarea').value.trim() === '')
+                return false;
+            
+            e.preventDefault();
+            
+            self.post({
+                url: this.getAttribute('action'),
+                content: this.querySelector('[name="ucomment-content"]').value,
+                path: this.querySelector('[name="ucomment-path"]').value,
+                target: e.target,
+                action: 'submit'
+            });
+            this.querySelector('[name="ucomment-content"]').value = '';
+            return false;
         };
     }    
     
     /** Put in ajax way
-     * @param {String} url The url where to send PUT
      * @param {Object} args The arguments that will be stringified
     */
     ucomment.prototype.put = function(args) {
@@ -71,7 +83,8 @@ var UComment = (function() {
                 } else {
                     self.onerror({action: args.action, target: args.target, url: args.url, success: false, message: resp.message});
                 }
-                self.onfinish({});
+                
+                self.onfinish({action: args.action});
             }
         };
         
@@ -89,7 +102,73 @@ var UComment = (function() {
         
         xhr.open('PUT', args.url);
         xhr.setRequestHeader("X-CSRFToken", this._getCookie('csrftoken'));
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
+
         xhr.send(null);
+    };
+    
+    /** Post in ajax way
+     * @param {String} url The url where to send PUT
+     * @param {Object} args The arguments that will be stringified
+    */
+    ucomment.prototype.post = function(args) {
+        var xhr = new XMLHttpRequest();
+        var self = this;
+        
+        xhr.open('POST', args.url);
+
+        xhr.onreadystatechange = function(e) {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    var resp = JSON.parse(xhr.responseText);
+                    if (resp.success === false) {
+                        self.onerror({
+                            action: args.action,
+                            target: args.target,
+                            url: args.url,
+                            success: false,
+                            message: resp.message
+                        });
+                    } else {
+                        self.onsuccess({
+                            action: args.action,
+                            target: args.target,
+                            url: args.url,
+                            response: resp
+                        });
+                    }
+                } else {
+                    self.onerror({
+                        action: args.action,
+                        target: args.target,
+                        url: args.url,
+                        success: false,
+                        message: resp.message
+                    });
+                }
+                self.onfinish({action: args.action});
+            }
+        };
+        
+        xhr.onerror = function(e) {
+            self.onerror({action: args.action, target: args.target, url: args.url, success: false, message: xhr.responseText});
+
+        };
+        xhr.onload = function(e) {
+            self.onload({
+                action: args.action,
+                url: args.url,
+                target: args.target
+            });
+        };
+        
+        xhr.setRequestHeader("X-CSRFToken", this._getCookie('csrftoken'));
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.send(JSON.stringify({
+            path: args.path,
+            action: args.action,
+            'ucomment-content': args.content
+        }));
     };
     
     /**
@@ -114,11 +193,28 @@ var UComment = (function() {
 document.addEventListener("DOMContentLoaded", function(evt) {
     var uc = new UComment({
         error: function(args) {
-            alert("UNE ERREUR" + args.action)
+            if (args.action == 'like' || args.action == 'dislike') {
+                alert("ERROR\n" +args.message);
+            }
+        },
+        
+        load: function(args) {
+            if (args.action == 'submit') {
+                console.log('un instant');
+            }
+        },
+        
+        finish: function(args) {
+            if (args.action == 'submit') {
+                console.log('C fait')
+            }
         },
         
         success: function(args) {
-            alert("UN SUCCES")
+            if (args.action == 'submit') {
+                var container = document.querySelector("#ucomment-container");
+                container.innerHTML = args.response.content + container.innerHTML;
+            }
         }
     });
 });

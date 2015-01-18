@@ -1,5 +1,14 @@
 {% load ucomment_tags i18n %}
-<form method="post" action="{% url 'ucomment_add_comment' %}" class="ucomment">
+<hr/>
+{% if messages %}
+    <ul class="ucomment">
+    {% for message in messages %}
+        <li class="ucomment-{{ message.tags }}">{{ message }}</li>
+    {% endfor %}
+    </ul>
+{% endif %}
+
+<form method="post" action="{% url 'ucomment_add_comment' %}" class="ucomment" data-ucomment>
     {% csrf_token %}
     {% ucomment_path %}
     <div class="ucomment-form-row">

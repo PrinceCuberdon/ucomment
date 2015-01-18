@@ -19,7 +19,7 @@ urlpatterns = patterns('',
     url(
         r'^ucomment/like/(\d+)/$',
         'ucomment.views.like_dislike',
-        {'like':False, 'dislike': True},
+        {'like':True, 'dislike': False},
         name='ucomment_like_it'
     ),
 
@@ -28,6 +28,12 @@ urlpatterns = patterns('',
         'ucomment.views.like_dislike',
         {'like':False, 'dislike': True},
         name='ucomment_dislike_it'
+    ),
+    
+    url(
+        r'^ucomment/report/abuse/(?P<comment_id>\d+)/$',
+        'ucomment.views.report_abuse',
+        name='ucomment_report_abuse'
     ),
     
     url(
