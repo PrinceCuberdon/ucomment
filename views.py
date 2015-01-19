@@ -36,7 +36,6 @@ class BookView(TemplateView):
         return context
 
 
-#
 # class BookViewNext(TemplateView):
 #    template_name = getattr(settings, "UCOMMENT_TEMPLATE", "ucomment/comments.html")
 #
@@ -226,72 +225,6 @@ def report_abuse(request, comment_id):
 
     return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
 
-
-# @login_required
-# def moderate(request):
-#    """ Moderate a comment """
-#    try:
-#        if request.is_ajax():
-#            if request.method == 'POST':
-#                comment = Comment.objects.get(pk=request.POST['rel'])
-#                abuse_max = int(CommentPref.objects.get_pref().abuse_max)
-#                if request.user.is_staff:
-#                        comment.moderate = True
-#                else:
-#                    if comment.can_set_abuse(request.user):
-#                        if comment.get_abuse_count() < abuse_max:
-#                            CommentAbuse(comment=comment, user=request.user).save()
-#                        if comment.get_abuse_count() >= abuse_max:
-#                            comment.moderate = True
-#                    else:
-#                        comment.moderate = True
-#                comment.save()
-#                return HttpResponse('')
-#    except Exception as e:
-#        ajax_log("ucomment.views.moderate : %s : IP : %s" % (e, request.META['REMOTE_ADDR']))
-#    return HttpResponseBadRequest('')
-#
-# def nextcomment(request):
-#    """ Get next comments """
-#    try:
-#        if request.is_ajax():
-#            if request.method == 'GET':
-#                startat = int(request.GET['startat'])
-#                url = request.GET['url']
-#                a = Comment.objects.filter(url=url,
-#                   visible=True,
-#                   trash=False, parent=None, is_message=False)[startat:startat + 15]
-#                context = RequestContext(request, {
-#                    'commentaries': a[:15],
-#                    'ucomment': {
-#                       'total_count': Comment.objects.filter(url=url,
-#                                                             visible=True, trash=False).values_list('pk').count()
-#                    }
-#                })
-#                return HttpResponse(loader.get_template("ucomment/messageblock.html").render(context))
-#    except Exception as e:
-#        ajax_log("nextcomment : %s" % e)
-#    return HttpResponseBadRequest('')
-#
-# d ef showlast(request):
-#    try:
-#        if request.is_ajax():
-#            if request.method == 'GET':
-#                startat = request.GET['startat']
-#                last = request.GET['last']
-#                url = request.GET['url']
-#                context = RequestContext(request, {
-#                    'commentaries':  Comment.objects.filter(
-#                       url=url, visible=True, trash=False, pk__lte=last)[startat:startat + 15],
-#                    'ucomment': {'total_count' : Comment.objects.filter(
-#                       url=url, visible=True, trash=False).values_list('pk').count()}
-#                })
-#                return HttpResponse(loader.get_template('ucomment/messageblock.html').render(context))
-#    except Exception as e:
-#        ajax_log("showlast : %s" % e)
-#
-#    return HttpResponseBadRequest('')
-#
 #
 # @login_required
 # @csrf_exempt
