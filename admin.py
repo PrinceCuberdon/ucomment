@@ -26,6 +26,7 @@ class CommentAdmin(admin.ModelAdmin):
     list_editable = (
         'visible',
         'trash',
+        'abuse_count',
         'moderate',
         'likeit',
         'dislikeit'

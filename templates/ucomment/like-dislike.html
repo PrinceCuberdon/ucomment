@@ -1,11 +1,11 @@
 {#                              #}
 {#  LIKE / DISLIKE / ABUSE BAR  #}
 {#                              #}
-{% load i18n %}
+{% load i18n ucomment_tags %}
 {% if ucomment_get_preferences.use_like_dislike %}
     {% if ucomment_get_preferences.only_registred %}
             <div class="ucomment-likedislike">
-                {{ comment.likeit }}
+                <span id="ucomment-likeit-{{ comment.pk }}">{{ comment.likeit }}</span>
             {% if user != comment.user %} {# Users can't vote for themselves #}
                 <a href="{% url 'ucomment_like_it' comment.id %}"
                    data-ucomment-like="{{ comment.pk }}"
@@ -15,7 +15,7 @@
                 {% trans 'people like it' %}
             {% endif %} |
                 
-                {{ comment.dislikeit }}
+                <span id="ucomment-dislikeit-{{ comment.pk }}">{{ comment.dislikeit }}</span>
             {% if user != comment.user %}
                     <a href="{% url 'ucomment_dislike_it' comment.id %}"
                    data-ucomment-dislike="{{ comment.pk }}"
@@ -25,7 +25,7 @@
                 {% trans "people don't like it" %}
             {% endif %}
                     
-            {% if user != comment.user %}
+            {% if user != comment.user and not user|ucomment_user_has_declared_abuse:comment %}
                 |
                 <a href="{% url 'ucomment_report_abuse' comment.pk %}" title="{% trans 'Report an abuse to the web site administrator' %}">
                     {% trans 'Report abuse' %}

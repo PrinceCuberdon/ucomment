@@ -6,17 +6,19 @@
 var UComment = (function() {
     "use strict";
     
-    function ucomment(options) {
+    function UComment(options) {
         this.onerror = 'error' in options ? options.error : function() {};
         this.onsuccess = 'success' in options ? options.success : function() {};
         this.onload = 'load' in options ? options.load : function() {};
         this.onfinish = 'finish' in options ? options.finish : function() {};
-    
-        var like_els = document.querySelectorAll('[data-ucomment-like]'),
-            dislike_els = document.querySelectorAll('[data-ucomment-dislike]'),
-            self=this;
-            
-        for (var i=0,_l=like_els.length; i<_l; i++) {
+
+        var like_els = document.querySelectorAll('[data-ucomment-like]');
+        var dislike_els = document.querySelectorAll('[data-ucomment-dislike]');
+        var self = this;
+        var i= 0;
+        var _l=0;
+
+        for (i=0,_l=like_els.length; i<_l; i++) {
             (function(el) {
                 el.onclick = function(e) {
                     e.preventDefault();
@@ -28,7 +30,7 @@ var UComment = (function() {
                 }                
             })(like_els[i]);
         }
-        for (var i=0,_l=dislike_els.length; i<_l; i++) {
+        for (i=0,_l=dislike_els.length; i<_l; i++) {
             (function(el) {
                 el.onclick = function(e) {
                     e.preventDefault();
@@ -43,7 +45,7 @@ var UComment = (function() {
         
         // Cleanup contentns
         var textareas = document.querySelectorAll('textarea.ucomment');
-        for(var i=0,_l=textareas.length;i<_l;i++) {
+        for(i=0,_l=textareas.length;i<_l;i++) {
             textareas[i].value = '';
         }
         
@@ -69,7 +71,7 @@ var UComment = (function() {
     /** Put in ajax way
      * @param {Object} args The arguments that will be stringified
     */
-    ucomment.prototype.put = function(args) {
+    UComment.prototype.put = function(args) {
         var xhr = new XMLHttpRequest(), self=this;
         xhr.onreadystatechange = function(e) {
             if (xhr.readyState === 4) {
@@ -111,7 +113,7 @@ var UComment = (function() {
      * @param {String} url The url where to send PUT
      * @param {Object} args The arguments that will be stringified
     */
-    ucomment.prototype.post = function(args) {
+    UComment.prototype.post = function(args) {
         var xhr = new XMLHttpRequest();
         var self = this;
         
@@ -176,7 +178,7 @@ var UComment = (function() {
      * @param {String} name The cookie name
      * @returns {String} The cookie value
      */
-    ucomment.prototype._getCookie = function(name) {
+    UComment.prototype._getCookie = function(name) {
         var cookies = document.cookie.split(';');
         for(var i=0,_l=cookies.length; i < _l; i++) {
             var k = cookies[i].split('=');
@@ -187,7 +189,7 @@ var UComment = (function() {
         return '';
     };
     
-    return ucomment;
+    return UComment;
 })();
 
 document.addEventListener("DOMContentLoaded", function(evt) {
@@ -211,9 +213,19 @@ document.addEventListener("DOMContentLoaded", function(evt) {
         },
         
         success: function(args) {
-            if (args.action == 'submit') {
-                var container = document.querySelector("#ucomment-container");
-                container.innerHTML = args.response.content + container.innerHTML;
+            switch (args.action) {
+                case 'submit':
+                    var container = document.querySelector("#ucomment-container");
+                    container.innerHTML = args.response.content + container.innerHTML;
+                    break;
+
+                case 'like':
+                case 'dislike':
+                    document
+                        .getElementById('ucomment-likeit-' + args.response.pk).innerHTML = '' + args.response.like;
+                    document
+                        .getElementById('ucomment-dislikeit-' + args.response.pk).innerHTML = ' ' + args.response.dislike;
+                    break;
             }
         }
     });

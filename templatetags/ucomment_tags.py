@@ -2,7 +2,7 @@
 # (c) Prince Cuberdon 2011 and Later <princecuberdon@bandcochon.fr>
 
 from django import template
-from ucomment.models import Comment
+from ucomment.models import Comment, CommentAbuse
 
 
 register = template.Library()
@@ -47,3 +47,16 @@ def ucomment_set_parent(parser, token):
             return '<input type="hidden" name="ucomment-parent" value="{}" />'.format(comment.pk)
     
     return UCommentSetParentNode()
+
+@register.filter
+def ucomment_user_has_declared_abuse(user, comment):
+    """
+    Test if an user has declared this comment as an abuse.
+    Use it like
+        user|ucomment_declare_abuse:comment
+
+    :param user: An Auth.Models.User object
+    :param comment: A commetn object
+    :return: Boolean
+    """
+    return CommentAbuse.objects.filter(user=user, comment=comment).count() != 0

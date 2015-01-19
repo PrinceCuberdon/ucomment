@@ -24,4 +24,4 @@ validate_comment = Signal(providing_args=['request', 'content'])
 comment_saved = Signal(providing_args=['comment'])
 
 
-report_abuse = Signal(providing_args=['comment'])
+abuse_reported = Signal(providing_args=['comment'])

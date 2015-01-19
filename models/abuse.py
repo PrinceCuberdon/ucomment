@@ -13,3 +13,4 @@ class CommentAbuse(models.Model):
 
     class Meta:
         app_label = "ucomment"
+

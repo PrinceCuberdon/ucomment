@@ -37,7 +37,7 @@ class CommentManager(models.Manager):
             ).order_by('submission_date'))
 
         for son in result:
-            if not son.parent.pk in comments_son:
+            if son.parent.pk not in comments_son:
                 comments_son[son.parent.pk] = []
             comments_son[son.parent.pk].append(son)
 

@@ -17,8 +17,8 @@ from django.views.generic import TemplateView
 
 from django.contrib import messages
 
-from .models import Comment, LikeDislike, CommentPref
-from .signals import validate_comment, comment_saved, report_abuse
+from .models import Comment, LikeDislike, CommentPref, CommentAbuse
+from .signals import validate_comment, comment_saved, abuse_reported
 
 
 class BookView(TemplateView):
@@ -274,7 +274,12 @@ def like_dislike(request, comment_id, like=False, dislike=False):
             
         
     if request.method == 'PUT':
-        return HttpResponse(json.dumps({'success': True}), content_type="application/json")
+        return HttpResponse(json.dumps({
+            'success': True,
+            'pk': comment_id,
+            'like': comment.likeit,
+            'dislike': comment.dislikeit
+        }), content_type="application/json")
 
     return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
     
@@ -282,12 +287,18 @@ def like_dislike(request, comment_id, like=False, dislike=False):
 @login_required
 def report_abuse(request, comment_id):
     comment = Comment.objects.get(pk=comment_id)
-    comment.abuse_count += 1
-    if comment.abuse_count >= CommentPref.objects.get_preferences().abuse_max:
-        comment.visible = False
-        comment.moderate = True
-    comment.save()
-    #report_abuse.send(comment)
+    abuse = CommentAbuse.objects.filter(comment=comment, user=request.user)
+    if abuse.exists():
+        messages.add_message(request, messages.ERROR, _("You have already declared this comment as an abuse"))
+    else:
+        CommentAbuse.objects.create(comment=comment, user=request.user)
+        comment.abuse_count += 1
+        if comment.abuse_count >= CommentPref.objects.get_preferences().abuse_max:
+            comment.visible = False
+            comment.moderate = True
+        comment.save()
+        abuse_reported.send(comment)
+
     return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
 
 
