@@ -27,7 +27,9 @@
                     
             {% if user != comment.user and not user|ucomment_user_has_declared_abuse:comment %}
                 |
-                <a href="{% url 'ucomment_report_abuse' comment.pk %}" title="{% trans 'Report an abuse to the web site administrator' %}">
+                <a href="{% url 'ucomment_report_abuse' comment.pk %}"
+                   title="{% trans 'Report an abuse to the web site administrator' %}"
+                   data-ucomment-report-abuse="{{ comment.pk }}">
                     {% trans 'Report abuse' %}
                 </a>
             {% endif %}

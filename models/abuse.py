@@ -11,6 +11,9 @@ class CommentAbuse(models.Model):
     user = models.ForeignKey(User)
     comment = models.ForeignKey('Comment')
 
+    def __unicode__(self):
+        return self.user.get_username()
+
     class Meta:
         app_label = "ucomment"
 

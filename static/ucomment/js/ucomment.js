@@ -42,6 +42,20 @@ var UComment = (function() {
                 }                
             })(dislike_els[i]);
         }
+
+        var abuse = document.querySelectorAll('[data-ucomment-report-abuse]');
+        for(i=0, _l=abuse.length; i < _l; i++) {
+            (function(el) {
+                el.onclick = function(e) {
+                    e.preventDefault();
+                    self.reportAbuse({
+                        url: '/ucomment/report/abuse/' + el.getAttribute('data-ucomment-report-abuse') + '/',
+                        target: e.target,
+                        action: 'report_abuse'
+                    });
+                }
+            })(abuse[i]);
+        }
         
         // Cleanup contentns
         var textareas = document.querySelectorAll('textarea.ucomment');
@@ -72,7 +86,8 @@ var UComment = (function() {
      * @param {Object} args The arguments that will be stringified
     */
     UComment.prototype.put = function(args) {
-        var xhr = new XMLHttpRequest(), self=this;
+        this._sendAjax('PUT', args, null);
+/*        var xhr = new XMLHttpRequest(), self=this;
         xhr.onreadystatechange = function(e) {
             if (xhr.readyState === 4) {
                 if (xhr.status === 200) {
@@ -106,7 +121,7 @@ var UComment = (function() {
         xhr.setRequestHeader("X-CSRFToken", this._getCookie('csrftoken'));
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
 
-        xhr.send(null);
+        xhr.send(null);*/
     };
     
     /** Post in ajax way
@@ -114,10 +129,16 @@ var UComment = (function() {
      * @param {Object} args The arguments that will be stringified
     */
     UComment.prototype.post = function(args) {
+        this._sendAjax('POST', args, JSON.stringify({
+            path: args.path,
+            action: args.action,
+            'ucomment-content': args.content
+        }));
+    };
+
+    UComment.prototype._sendAjax = function(method, args, sending) {
         var xhr = new XMLHttpRequest();
         var self = this;
-        
-        xhr.open('POST', args.url);
 
         xhr.onreadystatechange = function(e) {
             if (xhr.readyState === 4) {
@@ -151,7 +172,7 @@ var UComment = (function() {
                 self.onfinish({action: args.action});
             }
         };
-        
+
         xhr.onerror = function(e) {
             self.onerror({action: args.action, target: args.target, url: args.url, success: false, message: xhr.responseText});
 
@@ -163,14 +184,19 @@ var UComment = (function() {
                 target: args.target
             });
         };
-        
+
+        xhr.open(method.toUpperCase(), args.url);
         xhr.setRequestHeader("X-CSRFToken", this._getCookie('csrftoken'));
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        xhr.send(JSON.stringify({
-            path: args.path,
+        xhr.send(sending);
+    };
+
+    UComment.prototype.reportAbuse = function(args) {
+        this._sendAjax('GET', {
             action: args.action,
-            'ucomment-content': args.content
-        }));
+            url: args.url,
+            target: args.target
+        }, null);
     };
     
     /**
@@ -226,6 +252,10 @@ document.addEventListener("DOMContentLoaded", function(evt) {
                     document
                         .getElementById('ucomment-dislikeit-' + args.response.pk).innerHTML = ' ' + args.response.dislike;
                     break;
+
+                case 'report_abuse':
+                    args.target.remove();
+
             }
         }
     });

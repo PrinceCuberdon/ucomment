@@ -104,7 +104,7 @@ def add(request):
         # Emit the signal and catch result
         result = True
         sig_messages = []
-        for f, r in validate_comment.send(None, request=request, content=content):
+        for f, r in validate_comment.send(sender=None, request=request, content=content):
             result &= r[0]
             if not r[0]:
                 sig_messages.append(r[1])
@@ -125,7 +125,7 @@ def add(request):
                     visible=True,
                     ip=request.META['REMOTE_ADDR'],
                 )
-                comment_saved.send(comment)
+                comment_saved.send(sender=None, comment=comment)
                 
                 if request.is_ajax():
                     return HttpResponse(json.dumps({
@@ -284,7 +284,12 @@ def like_dislike(request, comment_id, like=False, dislike=False):
 
 @login_required
 def report_abuse(request, comment_id):
+    """
+    Respond to a abuse report
+    """
     comment = Comment.objects.get(pk=comment_id)
+
+    # Ensure the user don't declare twice or more an abuse
     abuse = CommentAbuse.objects.filter(comment=comment, user=request.user)
     if abuse.exists():
         messages.add_message(request, messages.ERROR, _("You have already declared this comment as an abuse"))
@@ -295,7 +300,14 @@ def report_abuse(request, comment_id):
             comment.visible = False
             comment.moderate = True
         comment.save()
-        abuse_reported.send(comment)
+
+        # Send a signal
+        abuse_reported.send(sender=None, user=request.user, comment=comment)
+
+    if request.is_ajax():
+        return HttpResponse(json.dumps({
+            'success': True
+        }), content_type="application/json")
 
     return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
 
