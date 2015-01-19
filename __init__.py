@@ -10,6 +10,7 @@ import datetime
 
 from .models import Comment, CommentPref
 
+
 def post_message(message, url=None, message_url=None, ip=None):
     """ Post a message not a comment """
     if CommentPref.get_pref().use_notification:

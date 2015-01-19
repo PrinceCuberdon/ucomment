@@ -4,7 +4,7 @@
 
 import json
 
-#from PIL import Image
+# from PIL import Image
 
 from django.utils.translation import ugettext_lazy as _
 from django.utils import timezone
@@ -25,9 +25,7 @@ class BookView(TemplateView):
     """
     The book view is called to display all messages from the url "/"
     """
-    template_name = getattr(settings,
-                            "UCOMMENT_TEMPLATE",
-                            "ucomment/comments.html")
+    template_name = getattr(settings, "UCOMMENT_TEMPLATE", "ucomment/comments.html")
 
     def get_context_data(self, **kwargs):
         # Call the context
@@ -39,7 +37,7 @@ class BookView(TemplateView):
 
 
 #
-#class BookViewNext(TemplateView):
+# class BookViewNext(TemplateView):
 #    template_name = getattr(settings, "UCOMMENT_TEMPLATE", "ucomment/comments.html")
 #
 #    def get(self, request, *args, **kwargs):
@@ -54,7 +52,7 @@ class BookView(TemplateView):
 #            'display_conn': False
 #        })
 
-#def book_next(request):
+# def book_next(request):
 #    """ Get next messages on the wall as JSON """
 #    if request.is_ajax() and request.method == "GET":
 #        count = int(request.GET.get('from', 0)) - 1
@@ -143,7 +141,7 @@ def add(request):
             if request.is_ajax():
                 return HttpResponse(json.dumps({
                     'success': False,
-                    'message' : '\n'.join(sig_messages)
+                    'message': '\n'.join(sig_messages)
                 }), content_type="application/json")
 
             for message in sig_messages:
@@ -154,10 +152,10 @@ def add(request):
     raise Http404("Bad Method")
 #
 #
-#def postmessage(request):
+# def postmessage(request):
 #    try:
 #        if request.method == 'POST' and request.is_ajax():
-#            if CommentPref.objects.get_preferences().only_registred == True and request.user.is_authenticated() == False:
+#         if CommentPref.objects.get_preferences().only_registred == True and request.user.is_authenticated() == False:
 #                ajax_log('ucomment.views.postmessage: Try to post when not authenticated. IP address: %s' %
 #                         request.META['REMOTE_ADDR'])
 #                return HttpResponseBadRequest('')
@@ -238,6 +236,7 @@ def add(request):
 #    return HttpResponseBadRequest('')
 #
 
+
 @login_required
 def like_dislike(request, comment_id, like=False, dislike=False):
     """
@@ -271,15 +270,14 @@ def like_dislike(request, comment_id, like=False, dislike=False):
                             }),
                             content_type="application/json"
                         )
-            
-        
-    if request.method == 'PUT':
-        return HttpResponse(json.dumps({
-            'success': True,
-            'pk': comment_id,
-            'like': comment.likeit,
-            'dislike': comment.dislikeit
-        }), content_type="application/json")
+
+        if request.method == 'PUT':
+            return HttpResponse(json.dumps({
+                'success': True,
+                'pk': comment_id,
+                'like': comment.likeit,
+                'dislike': comment.dislikeit
+            }), content_type="application/json")
 
     return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
     
@@ -302,8 +300,8 @@ def report_abuse(request, comment_id):
     return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
 
 
-#@login_required
-#def moderate(request):
+# @login_required
+# def moderate(request):
 #    """ Moderate a comment """
 #    try:
 #        if request.is_ajax():
@@ -326,24 +324,29 @@ def report_abuse(request, comment_id):
 #        ajax_log("ucomment.views.moderate : %s : IP : %s" % (e, request.META['REMOTE_ADDR']))
 #    return HttpResponseBadRequest('')
 #
-#def nextcomment(request):
+# def nextcomment(request):
 #    """ Get next comments """
 #    try:
 #        if request.is_ajax():
 #            if request.method == 'GET':
 #                startat = int(request.GET['startat'])
 #                url = request.GET['url']
-#                a = Comment.objects.filter(url=url, visible=True, trash=False, parent=None, is_message=False)[startat:startat + 15]
+#                a = Comment.objects.filter(url=url,
+#                   visible=True,
+#                   trash=False, parent=None, is_message=False)[startat:startat + 15]
 #                context = RequestContext(request, {
 #                    'commentaries': a[:15],
-#                    'ucomment': {'total_count': Comment.objects.filter(url=url, visible=True, trash=False).values_list('pk').count()}
+#                    'ucomment': {
+#                       'total_count': Comment.objects.filter(url=url,
+#                                                             visible=True, trash=False).values_list('pk').count()
+#                    }
 #                })
 #                return HttpResponse(loader.get_template("ucomment/messageblock.html").render(context))
 #    except Exception as e:
 #        ajax_log("nextcomment : %s" % e)
 #    return HttpResponseBadRequest('')
 #
-#def showlast(request):
+# d ef showlast(request):
 #    try:
 #        if request.is_ajax():
 #            if request.method == 'GET':
@@ -351,8 +354,10 @@ def report_abuse(request, comment_id):
 #                last = request.GET['last']
 #                url = request.GET['url']
 #                context = RequestContext(request, {
-#                    'commentaries':  Comment.objects.filter(url=url, visible=True, trash=False, pk__lte=last)[startat:startat + 15],
-#                    'ucomment': {'total_count' : Comment.objects.filter(url=url, visible=True, trash=False).values_list('pk').count()}
+#                    'commentaries':  Comment.objects.filter(
+#                       url=url, visible=True, trash=False, pk__lte=last)[startat:startat + 15],
+#                    'ucomment': {'total_count' : Comment.objects.filter(
+#                       url=url, visible=True, trash=False).values_list('pk').count()}
 #                })
 #                return HttpResponse(loader.get_template('ucomment/messageblock.html').render(context))
 #    except Exception as e:
@@ -361,9 +366,9 @@ def report_abuse(request, comment_id):
 #    return HttpResponseBadRequest('')
 #
 #
-#@login_required
-#@csrf_exempt
-#def sendphoto(request):
+# @login_required
+# @csrf_exempt
+# def sendphoto(request):
 #    """ Send a picture, storeit into temp directory """
 #    datarel = 0
 #    try:

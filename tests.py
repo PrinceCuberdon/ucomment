@@ -1,15 +1,19 @@
-# -*- coding: utf-8 -*-
+# -*- coding: UTF-8 -*-
+# ucomment is part of Band Cochon
+# Band Cochon (c) Prince Cuberdon 2011 and Later <princecuberdon@bandcochon.fr>
 
 from unittest import TestCase
 from django.utils import timezone
 import locale
 import platform
-
+import datetime
 from django.test import Client
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 
-from .models import convert_date, CommentPref, Comment
+from .models import CommentPref, Comment
+from .models.utils import convert_date
+
 
 class ConvertDateTest(TestCase):
     def setUp(self):
@@ -29,7 +33,7 @@ class ConvertDateTest(TestCase):
         with self.assertRaises(Exception):
             try:
                 convert_date(dt)
-            except:
+            except UnicodeDecodeError:
                 pass
             else:
                 raise Exception
@@ -83,5 +87,3 @@ class LikeDislikeTest(TestCase):
     
     def test_dontlike_ajax(self):
         pass
-    
-

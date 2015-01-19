@@ -4,6 +4,7 @@
 
 from .models import CommentPref
 
+
 def ucomment(request):
     """ Put into the context, the page path """ 
     return {

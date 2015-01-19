@@ -5,7 +5,7 @@
 from django.contrib import admin
 
 from .models import Comment, CommentPref, LikeDislike, CommentAbuse
-#from core.common import TINYMCE_JS
+# from core.common import TINYMCE_JS
 
 
 class CommentAdmin(admin.ModelAdmin):
@@ -48,10 +48,14 @@ class CommentAdmin(admin.ModelAdmin):
     
     date_hierarchy = 'submission_date'
 
-    #class Media:
+    # class Media:
     #    js = TINYMCE_JS
 
+
 class CommentPrefAdmin(admin.ModelAdmin):
+    """
+    Declaration for the Comment preferences
+    """
     list_display = (
         '__unicode__',
         'only_registred',
@@ -66,6 +70,7 @@ class CommentPrefAdmin(admin.ModelAdmin):
         'register_ip',
         'abuse_max'        
     )
+
 
 class LikeDislikeAdmin(admin.ModelAdmin):
     list_display = (
