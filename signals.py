@@ -23,5 +23,8 @@ validate_comment = Signal(providing_args=['request', 'content'])
 #
 comment_saved = Signal(providing_args=['comment'])
 
-
+#
+# This signal is emitted when an user declare a comment as an abuse
+# The comment argument is the comment by itself
+#
 abuse_reported = Signal(providing_args=['comment'])
