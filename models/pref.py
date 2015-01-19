@@ -46,3 +46,5 @@ class CommentPref(models.Model):
 
     class Meta:
         app_label = "ucomment"
+        verbose_name = _("Preference")
+        verbose_name_plural = _("Preferences")

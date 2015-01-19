@@ -209,7 +209,8 @@ class Comment(models.Model):
     class Meta:
         ordering = ("-submission_date",)
         app_label = "ucomment"
-        
+        verbose_name = _("Comment")
+        verbose_name_plural = _("Comments")
 
     def __unicode__(self):
         try:

@@ -5,7 +5,7 @@
 
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-
+from django.utils.translation import ugettext_lazy as _
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -41,6 +41,8 @@ class LikeDislike(models.Model):
 
     class Meta:
         app_label = "ucomment"
+        verbose_name = _("Like or Dislike")
+        verbose_name_plural = _("Likes or Dislikes")
 
 
 @receiver(post_save, sender=LikeDislike)
