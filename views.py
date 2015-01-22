@@ -225,8 +225,19 @@ def report_abuse(request, comment_id):
 
     return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
 
+
+def send_files(request):
+    """
+    Receive one or more fles
+    """
+    import time
+    if request.FILES:
+        for file_uploaded in request.FILES.getlist('files'):
+            with open('{0}-{1}'.format(request.user.username, file_uploaded.name), 'wb+') as destination:
+                [destination.write(chunk) for chunk in file_uploaded.chunks()]
+    return HttpResponse(json.dumps({'success': True}), content_type="application/json")
 #
-# @login_required
+# @login_requireds
 # @csrf_exempt
 # def sendphoto(request):
 #    """ Send a picture, storeit into temp directory """

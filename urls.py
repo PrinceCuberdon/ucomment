@@ -49,5 +49,10 @@ urlpatterns = patterns(
     # url(r'^ucomment/moderate/$',     'ucomment.views.moderate',       name='ucomment_moderate'),
     # url(r'^ucomment/nextcomment/$',  'ucomment.views.nextcomment',    name='ucomment_nextcomment'),
     # url(r'^ucomment/showlast/$',     'ucomment.views.showlast',       name='ucomment_showlast'),
-    # url(r'^ucomment/sendphoto/$',    'ucomment.views.sendphoto',      name="ucomment_sendphoto"),
+
+    url(
+        r'^ucomment/send_files/$',
+        'ucomment.views.send_files',
+        name="ucomment_send_files"
+    ),
 )

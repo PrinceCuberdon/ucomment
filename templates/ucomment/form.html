@@ -10,12 +10,16 @@
 
 <form method="post" action="{% url 'ucomment_add_comment' %}" class="ucomment" data-ucomment>
     {% csrf_token %}
+    {# This tag is required #}
     {% ucomment_path %}
-    <div class="ucomment-form-row">
+    <div>
         <textarea class="ucomment" name="ucomment-content"></textarea>
     </div>
-    <div class="ucomment-form-row">
+    <div>
         <input type="submit" value="{% trans 'Send' %}" />
         <input type="file" multiple name="ucomment-files" accept="image/*" />
     </div>
+
+    {# To display a progress bar you only have to create a HTML Element with the ID "ucomment-progress" #}
+    <div id="ucomment-progress"></div>
 </form>
