@@ -2,7 +2,8 @@
 # (c) Prince Cuberdon 2011 and Later <princecuberdon@bandcochon.fr>
 
 from django import template
-from ucomment.models import Comment, CommentAbuse
+# FIXME: Non path dependents importation
+from libs.ucomment.models import Comment, CommentAbuse
 
 
 register = template.Library()
