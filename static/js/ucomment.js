@@ -18,7 +18,7 @@ $(document).ready(function() {
                 content: $textarea.val()
 			}, function(data) {
 				if (prepend == true)
-					$(data).prependTo($dest)
+					$(data).prependTo($dest);
 				else
 			    	$(data).appendTo($dest);
 			}).complete(function() {
@@ -103,7 +103,7 @@ $(document).ready(function() {
         }).complete(function() {
             $("span.wait[data-rel="+rel+"]").hide();
         });
-    }
+	};
     
     $(".agree-count").live('click', function() {
         agree_or_not('agree', $(this).attr('data-rel'), $(this).attr("data-wall"), $(this).attr("data-wall-url"));
