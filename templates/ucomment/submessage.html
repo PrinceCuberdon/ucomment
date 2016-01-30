@@ -1,0 +1,49 @@
+{% load ucomment_tags bandcochon_tags %}
+{% ucomment_init %}
+{% with subcomment as comment %}
+	{% if comment.moderate %}
+	<div class="submessage-block" style="background-color: #FFA7F0">
+		<div style="padding: 5px; font-weight: bold;">Message en attente de modération</div>
+	</div>
+	<div>&nbsp;</div>
+	{% else %}
+	<div class="submessage-block" data-rel="{{comment.pk}}">
+		<div class="message-title">
+			<div class="left">
+		    	<strong>{{comment.user}}</strong> a écrit le {{comment.submission_date|date:"d F Y"}}
+		    </div>
+	    	{% include 'ucomment/agree.inc.html' %}
+		    <div class="clear"></div>
+		</div>
+	
+	    <div class="clear right">
+	    	{% if not user.is_anonymous %}
+	    		{% if ucomment.can_vote %}
+			    	<a data-rel="{{comment.pk}}" href="/ucomment/moderate/" class="link moderate-comment" data-user="{% if user.is_staff %}true{% else %}false{% endif %}">
+			    {% endif %}
+				{% if user.is_staff %}
+					Modérer ce commentaire
+				{% else  %}
+					{% if comment.user != user %}
+						{% ucomment_signaled comment user 'Déjà signalé' 'Signaler un abus' %}
+					{% endif %}
+				{% endif %}
+				{% if ucomment.can_vote %}</a>{%endif %}
+	    	</a>
+	    	{% endif %}
+	    </div>
+	
+		<div class="message-content">
+			{% if comment.user %}
+				{% include 'ucomment/userprofile.inc.html' %}
+		    {% else %}
+		    <img src="{% static 'images/default_avatar.png' %}" width="48" />
+		    {% endif %}
+		    <div class="comment-body">
+		        {{comment.content|safe|linebreaksbr}}
+		    </div>
+		</div>
+		<div class="clear-with-margin"></div>
+	</div>
+	{% endif %}
+{% endwith %}

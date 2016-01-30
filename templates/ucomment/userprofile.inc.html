@@ -1,0 +1,20 @@
+{% load ucomment_tags bandcochon_tags cache online_tags %}
+<div class="message-information">
+    <div class="message-user-info">
+        <img src="{{comment.user.profile.avatar_or_default}}" width="64" class="avatar"/>
+    </div>
+    <div class="message-user-info message-user-info-line user-status" data-rel="{{ comment.user.pk }}">
+        <img src="{% static 'images/offline.png' %}"/> <span class="user-status-text" data-rel="{{ comment.user.pk }}">Hors ligne</span>
+    </div>
+    {% if user.is_authenticated %}
+    <div class="message-user-info message-user-info-line small-right" title="Envoyer un message">
+        <a href="#" class="send-a-message" data-name="{{ comment.user.username }}"><img src="{% static 'images/message.png' %}" />Message</a>
+    </div>
+    {% endif %}
+    <div class="message-user-info message-user-info-line small-right" title="Nombre de commentaires postés">
+        <img src="{% static 'images/mes-commentaires.png' %}" />{% ucomment_user_get_message_count  comment.user %}
+    </div>
+    <div class="message-user-info message-user-info-line small-right" title="Nombre de cochonneries trouvées">
+        <img src="{% static 'images/favicon.png' %}" />{% bandcochon_user_get_pigsties_count comment.user %}
+    </div>
+</div>

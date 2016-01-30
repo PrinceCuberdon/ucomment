@@ -5,7 +5,7 @@
 from django.contrib import admin
 
 from .models import Comment, CommentPref, LikeDislike, CommentAbuse
-# from core.common import TINYMCE_JS
+#from core.common import TINYMCE_JS
 
 
 class CommentAdmin(admin.ModelAdmin):
@@ -18,26 +18,24 @@ class CommentAdmin(admin.ModelAdmin):
         'trash',
         'ip',
         'moderate',
-        'abuse_count',
-        'likeit',
-        'dislikeit'
+        'get_abuse_count',
+        'is_message',
     )
     
     list_editable = (
         'visible',
         'trash',
-        'abuse_count',
         'moderate',
-        'likeit',
-        'dislikeit'
     )
     
     list_filter = (
         'url',
         'submission_date',
         'user',
+        'parent',
         'visible',
-        'moderate'
+        'moderate',
+        'is_message',
     )
     
     search_fields = (
@@ -48,39 +46,11 @@ class CommentAdmin(admin.ModelAdmin):
     
     date_hierarchy = 'submission_date'
 
-    # class Media:
+    #class Media:
     #    js = TINYMCE_JS
 
 
-class CommentPrefAdmin(admin.ModelAdmin):
-    """
-    Declaration for the Comment preferences
-    """
-    list_display = (
-        '__unicode__',
-        'only_registred',
-        'use_like_dislike',
-        'register_ip',
-        'abuse_max'
-    )
-    
-    list_editable = (
-        'only_registred',
-        'use_like_dislike',
-        'register_ip',
-        'abuse_max'        
-    )
-
-
-class LikeDislikeAdmin(admin.ModelAdmin):
-    list_display = (
-        '__unicode__',
-        'user',
-        'like',
-        'dislike'
-    )
-    
 admin.site.register(Comment, CommentAdmin)
-admin.site.register(CommentPref, CommentPrefAdmin)
-admin.site.register(LikeDislike, LikeDislikeAdmin)
+admin.site.register(CommentPref)
+admin.site.register(LikeDislike)
 admin.site.register(CommentAbuse)

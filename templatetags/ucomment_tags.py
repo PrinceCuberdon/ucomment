@@ -1,64 +1,35 @@
 # -*- coding: UTF-8 -*-
-# (c) Prince Cuberdon 2011 and Later <princecuberdon@bandcochon.fr>
+# ucomment is part of Band Cochon
+# Band Cochon (c) Prince Cuberdon 2011 and Later <princecuberdon@bandcochon.fr>
 
 from django import template
+from django.db import connection
+from django.conf import settings
 
-# FIXME: Non path dependents importation
-from ucomment.models import Comment, CommentAbuse
-
+from ucomment.models import Comment
 
 register = template.Library()
 
-@register.tag
-def ucomment_get_for_uri(parser, token):
-    tag_name, page_uri = token.split_contents()
-    
-    class UCommentGetForUriNode(template.Node):
-        def render(self, context):
-            uri = template.Variable(page_uri).resolve(context)
-            context['ucomment_get_comments'] = Comment.objects.get_for_url(uri)
-            return ''
-        
-    return UCommentGetForUriNode()
-
-@register.tag
-def ucomment_path(parser, token):
-    """
-    Install the page path into the submission form. The UComment context processor 
-    Usage:
-        add {% ucomment_path %} into the <form> tag
-    """
-    class UCommentPathNode(template.Node):
-        def render(self, context):
-            return '<input type="hidden" name="ucomment-path" value="{0}" />'.format(context['PAGE_URI'])
-
-    return UCommentPathNode()
-
-@register.tag
-def ucomment_set_parent(parser, token):
-    """
-    Install a input form tag.
-    Usage:
-        add {% ucomment_set_parent comment %} where {{ comment }} is the parent comment
-    """
-    tag_name, comment_ctx = token.split_contents()
-    
-    class UCommentSetParentNode(template.Node):
-        def render(self, context):
-            comment = template.Variable(comment_ctx).resolve(context)
-            return '<input type="hidden" name="ucomment-parent" value="{}" />'.format(comment.pk)
-    
-    return UCommentSetParentNode()
+START_SITE_MEDIA = len(settings.MEDIA_URL)
 
 @register.filter
-def ucomment_user_has_declared_abuse(user, comment):
-    """
-    Test if an user has declared this comment as an abuse.
-    Use it like
-        user|ucomment_declare_abuse:comment
+def comment_count(value):
+    """ Get comment count for a picture """
+    comments = Comment.objects.filter(visible=True)
+    return comments.filter(url=value).only('id').count() + comments.filter(parent__url=value).only('id').count()
 
-    :param user: An Auth.Models.User object
-    :param comment: A commetn object
-    :return: Boolean
-    """
-    return CommentAbuse.objects.filter(user=user, comment=comment).count() != 0
+@register.simple_tag
+def get_total_comments_count(user):
+    """ Get comments count for an user """
+    cursor = connection.cursor()
+    cursor.execute("SELECT COUNT(id) FROM ucomment_comment WHERE user_id='%d'" % user.id)
+    return cursor.fetchone()[0]
+
+
+@register.filter
+def ensure_site_media(value):
+    """ Here for historical reason. Old avatar path are located with "avatar/IMAGE"
+    not "/site_media/avatar/IMAGE" """
+    if value[:START_SITE_MEDIA] != settings.MEDIA_URL:
+        return settings.MEDIA_URL + value
+    return value
