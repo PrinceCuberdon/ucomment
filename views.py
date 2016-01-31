@@ -1,8 +1,9 @@
 # -*- coding: UTF-8 -*-
-# ucomment is part of Band Cochon
-# Band Cochon (c) Prince Cuberdon 2011 and Later <princecuberdon@bandcochon.fr>
+# UComment - Universal Comment
+# A Django based application for commentaries
+#
+# (c) Prince Cuberdon 2011 and Later <princecuberdon@bandcochon.fr>
 
-import datetime
 import json
 import os
 import re
@@ -21,11 +22,11 @@ from django.middleware.csrf import get_token
 from django.shortcuts import render_to_response, render
 from django.views.generic import TemplateView
 from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
 
 from core.bandcochon.models import Picture
 from .models import Comment, LikeDislike, CommentPref, CommentAbuse
 
-from libs import MustBeAjaxMixin
 from libs.notification import ajax_log, notification_send, Notification
 from core.common import convert_date
 
@@ -50,7 +51,7 @@ class BookViewNext(TemplateView):
             return HttpResponseBadRequest('')
 
         count = int(request.GET.get('from', 0)) - 1
-        comments = list(Comment.objects.filter(visible=True, trash=False, url='/', parent=None)[count+1:count+25])
+        comments = list(Comment.objects.filter(visible=True, trash=False, url='/', parent=None)[count + 1:count + 25])
         return render(request, {
             'url': '/',
             'book_comments': list(comments),
@@ -62,7 +63,7 @@ def book_next(request):
     """ Get next messages on the wall as JSON """
     if request.is_ajax() and request.method == "GET":
         count = int(request.GET.get('from', 0)) - 1
-        comments = list(Comment.objects.filter(visible=True, trash=False, url='/', parent=None)[count+1:count+25])
+        comments = list(Comment.objects.filter(visible=True, trash=False, url='/', parent=None)[count + 1:count + 25])
         return render_to_response('inc/book.html', RequestContext(request, {
             'url': '/',
             'book_comments': list(comments),
@@ -72,12 +73,11 @@ def book_next(request):
     return HttpResponseBadRequest('')
 
 
-@csrf_exempt
 def postmessage(request):
     """ Post a message as AJAX """
     try:
         if request.method == 'POST' and request.is_ajax():
-            if CommentPref.objects.get_pref().only_registred == True and request.user.is_authenticated() == False:
+            if CommentPref.objects.get_preferences().only_registred and not request.user.is_authenticated():
                 ajax_log('ucomment.views.postmessage: Try to post when not authenticated. IP address: %s' %
                          request.META['REMOTE_ADDR'])
                 return HttpResponseBadRequest('')
@@ -95,12 +95,11 @@ def postmessage(request):
                 if not onwallurl and referer == '/' and onwallurl != '/':
                     referer = request.META['HTTP_REFERER'].replace('http://%s' % Site.objects.get_current().domain, '')
 
-                now = datetime.datetime.now()
                 comment = Comment.objects.create(
                     url=referer,
                     content=content,
-                    submission_date=datetime.datetime.now(),
-                    visible=CommentPref.objects.get_pref().publish_on_submit,
+                    submission_date=timezone.now(),
+                    visible=CommentPref.objects.get_preferences().publish_on_submit,
                     ip=request.META['REMOTE_ADDR'],
                     user=request.user,
                     parent=parent
@@ -109,7 +108,7 @@ def postmessage(request):
                 # Prepare JSON
                 data = {
                     'username': request.user.username,
-                    'submission_date': convert_date(datetime.datetime.now()),
+                    'submission_date': convert_date(timezone.now()),
                     'knowuser': True,
                     'avatar': request.user.profile.avatar_or_default(),
                     'userid': request.user.id,
@@ -137,9 +136,9 @@ def postmessage(request):
                     for comment in comments:
                         mails[comment.user.email] = ''
                     req = RequestContext(request, {
-                        'username':  request.user.username,
-                        'message' : comment.content,
-                        'url' : comment.url
+                        'username': request.user.username,
+                        'message': comment.content,
+                        'url': comment.url
                     })
                     if not settings.IS_LOCAL and not settings.IS_TESTING:
                         notif = Notification(settings.BANDCOCHON_CONFIG.EmailTemplates.user_comment)
@@ -165,12 +164,12 @@ def agree(request):
     """
     try:
         if request.is_ajax() and request.method == 'POST':
-            if not request.user.is_authenticated() and CommentPref.objects.get_pref().only_registred == True:
+            if not request.user.is_authenticated() and CommentPref.objects.get_preferences().only_registred:
                 return HttpResponse(u"""{"success":false, "message":"Vous devez vous enregistrer pour voter"}""",
                                     content_type="application/json")
 
             comment = Comment.objects.get(pk=request.POST['message'])
-            if (comment.user == request.user):
+            if comment.user == request.user:
                 return HttpResponse(u"""{"success":false, "message":"Vous ne pouvez pas voter pour vous même !!"}""",
                                     content_type="application/json")
 
@@ -191,16 +190,16 @@ def agree(request):
                 notification_send(settings.BANDCOCHON_CONFIG.EmailTemplates.user_like,
                                   comment.user.email,
                                   RequestContext(request, {
-                                    'username' : request.user.username,
-                                    'message' : comment.content,
-                                    'url' : comment.get_absolute_url()
+                                      'username': request.user.username,
+                                      'message': comment.content,
+                                      'url': comment.get_absolute_url()
                                   })
-                )
+                                  )
 
             agreeiers = []
             for u in comment.get_agreeiers():
                 agreeiers.append({
-                    'username' : u.user.username,
+                    'username': u.user.username,
                     'avatar': u.user.profile.avatar_or_default()
                 })
 
@@ -224,7 +223,7 @@ def disagree(request):
                                     content_type="application/json")
 
             comment = Comment.objects.get(pk=request.POST['message'])
-            if (comment.user == request.user):
+            if comment.user == request.user:
                 return HttpResponse("""{"success":false, "message":"Vous ne pouvez pas voter pour vous m&ecirc;me !!"}""", content_type="application/json")
 
             if LikeDislike.objects.filter(comment=comment, user=request.user).count() > 0:
@@ -239,20 +238,21 @@ def disagree(request):
             comment.dislikeit += 1
             comment.save()
 
-            if comment.user.profile.accept_notification == True and settings.IS_LOCAL == False and settings.IS_TESTING == False:
+            if comment.user.profile.accept_notification and not settings.IS_LOCAL and not settings.IS_TESTING:
                 notification_send(settings.BANDCOCHON_CONFIG.EmailTemplates.user_dislike, comment.user.email, RequestContext(request, {
-                    'username' : request.user.username,
-                    'message' : comment.content,
-                    'url' : comment.get_absolute_url()
+                    'username': request.user.username,
+                    'message': comment.content,
+                    'url': comment.get_absolute_url()
                 }))
 
             disagreeiers = []
             for u in comment.get_disagreeiers():
                 disagreeiers.append({
-                    'username' : u.user.username,
+                    'username': u.user.username,
                     'avatar': u.user.profile.avatar_or_default()
                 })
-            return HttpResponse(u"""{"success": true, "message": "Votre vote a été pris en compte", "disagreeiers" : %s}""" % json.dumps(disagreeiers, ensure_ascii=False), content_type="application/json")
+            return HttpResponse(u"""{"success": true, "message": "Votre vote a été pris en compte", "disagreeiers" : %s}""" % json.dumps(disagreeiers, ensure_ascii=False),
+                                content_type="application/json")
         else:
             ajax_log("ucomment.views.disagree: Not an ajax or a post ; %s" % request.META['REMOTE_ADDR'])
 
@@ -268,9 +268,9 @@ def moderate(request):
         if request.is_ajax():
             if request.method == 'POST':
                 comment = Comment.objects.get(pk=request.POST['rel'])
-                abuse_max = int(CommentPref.objects.get_pref().abuse_max)
+                abuse_max = int(CommentPref.objects.get_preferences().abuse_max)
                 if request.user.is_staff:
-                        comment.moderate = True
+                    comment.moderate = True
                 else:
                     if comment.can_set_abuse(request.user):
                         if comment.get_abuse_count() < abuse_max:
@@ -284,6 +284,7 @@ def moderate(request):
     except Exception as e:
         ajax_log("ucomment.views.moderate : %s : IP : %s" % (e, request.META['REMOTE_ADDR']))
     return HttpResponseBadRequest('')
+
 
 def nextcomment(request):
     """ Get next comments """
@@ -302,6 +303,7 @@ def nextcomment(request):
         ajax_log("nextcomment : %s" % e)
     return HttpResponseBadRequest('')
 
+
 def showlast(request):
     try:
         if request.is_ajax():
@@ -310,8 +312,8 @@ def showlast(request):
                 last = request.GET['last']
                 url = request.GET['url']
                 context = RequestContext(request, {
-                    'commentaries':  Comment.objects.filter(url=url, visible=True, trash=False, pk__lte=last)[startat:startat + 15],
-                    'ucomment': {'total_count' : Comment.objects.filter(url=url, visible=True, trash=False).values_list('pk').count()}
+                    'commentaries': Comment.objects.filter(url=url, visible=True, trash=False, pk__lte=last)[startat:startat + 15],
+                    'ucomment': {'total_count': Comment.objects.filter(url=url, visible=True, trash=False).values_list('pk').count()}
                 })
                 return HttpResponse(loader.get_template('ucomment/messageblock.html').render(context))
     except Exception as e:
@@ -324,10 +326,11 @@ def showlast(request):
 @csrf_exempt
 def sendphoto(request):
     """ Send a picture, storeit into temp directory """
+    is_html5 = "HTTP_X_REQUESTED_WITH" in request.META
     datarel = 0
+
     try:
         if request.method == 'POST':
-            is_html5 = True  # "HTTP_X_REQUESTED_WITH" in request.META
             keys = request.FILES.keys()
             if len(keys) == 1:
                 # Get informations
@@ -338,9 +341,9 @@ def sendphoto(request):
                     # Ensure the fieldname (minimal security - not really useful)
                     if is_html5:
                         return HttpResponse(json.dumps({
-                            'success':False,
+                            'success': False,
                             'message': 'An error occured',
-                            'datarel':datarel
+                            'datarel': datarel
                         }), content_type="application/json")
                     else:
                         return HttpResponse("""<script type="text/javascript">window.top.window.imageUploaded""" +
@@ -350,7 +353,7 @@ def sendphoto(request):
                 if not re.search(r'jpg|jpeg|png|gif', picture_name, re.I):
                     if is_html5:
                         return HttpResponse(json.dumps({
-                            'success':False,
+                            'success': False,
                             'message': 'File type unauthorized',
                             'datarel': datarel
                         }), content_type="application/json")
@@ -380,7 +383,7 @@ def sendphoto(request):
                 # Send response
                 if is_html5:
                     return HttpResponse(json.dumps({
-                        'success':True,
+                        'success': True,
                         'image': relative_path,
                         'datarel': datarel
                     }), content_type="application/json")
@@ -395,7 +398,7 @@ def sendphoto(request):
     if is_html5:
         return HttpResponse(json.dumps({
             'success': False,
-            'message':'An error occured'
+            'message': 'An error occured'
         }), content_type="application/json")
     else:
         return HttpResponse("""<script type="text/javascript">window.top.window.imageUploaded""" +
