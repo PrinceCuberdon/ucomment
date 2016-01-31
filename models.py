@@ -23,8 +23,14 @@ def convert_date(value):
 
 class CommentPrefManager(models.Manager):
     def get_preferences(self):
-        """ Return preferences for Comment. Create with default values if not exists """
-        return self.get_queryset().lastest('id') if self.get_queryset().count() > 0 else CommentPref.objects.create()
+        """
+        Get the comment framework preferences and create it if there isn't preference in database
+
+        :return: The preferences
+        :rtype: ucomment.models.CommentPref
+        """
+        prefs = list(self.get_queryset().all())
+        return prefs[-1] if prefs else CommentPref.objects.create()
 
 
 class CommentPref(models.Model):
