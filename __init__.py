@@ -7,6 +7,7 @@ Public API
 """
 
 import datetime
+from django.utils import timezone
 
 from .models import Comment, CommentPref
 
@@ -14,7 +15,7 @@ def post_message(message, url=None, message_url=None, ip=None):
     """ Post a message not a comment """
     if CommentPref.get_pref().use_notification:
         mess = Comment()
-        mess.submission_date = datetime.datetime.now()
+        mess.submission_date = timezone.now()
         mess.is_message = True
         if ip is not None:
             mess.ip = ip
