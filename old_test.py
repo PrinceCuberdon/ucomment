@@ -702,10 +702,10 @@ class ViewsTest(TestCase):
     # Send_photo ##############################################################
     # The tested file must exists and it is static/images/favicon.png #########
     #
-    filename_png = 'test_bc/resources/testpicture.png'
-    filename_gif = 'test_bc/resources/testpicture.gif'
-    filename_jpg = 'test_bc/resources/testpicture.jpg'
-    filename_jpeg = 'test_bc/resources/testpicture.jpeg'
+    filename_png = 'tests/resources/testpicture.png'
+    filename_gif = 'tests/resources/testpicture.gif'
+    filename_jpg = 'tests/resources/testpicture.jpg'
+    filename_jpeg = 'tests/resources/testpicture.jpeg'
     fakename = "site_media/temp/fake.nothing"
     
     def test_send_photo_noconnect(self):
