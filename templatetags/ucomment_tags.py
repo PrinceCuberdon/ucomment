@@ -12,11 +12,13 @@ register = template.Library()
 
 START_SITE_MEDIA = len(settings.MEDIA_URL)
 
+
 @register.filter
 def comment_count(value):
     """ Get comment count for a picture """
     comments = Comment.objects.filter(visible=True)
     return comments.filter(url=value).only('id').count() + comments.filter(parent__url=value).only('id').count()
+
 
 @register.simple_tag
 def get_total_comments_count(user):
