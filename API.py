@@ -13,7 +13,7 @@ __author__ = 'Prince Cuberdon'
 from .models import Comment
 
 
-def get_count(url='/', limit=-1):
+def get_count(url='/'):
     """
     Get the number of comments for an url
 
@@ -24,7 +24,7 @@ def get_count(url='/', limit=-1):
     :return: The number of comments for an url
     :rtype int
     """
-    return len(get_comments(url, limit))
+    return len(get_comments(url))
 
 
 def get_comments(url='/', limit=-1):
@@ -49,7 +49,19 @@ def search_words(words):
     :rtype list
     """
     comment_query = Q()
+
     for word in words:
         comment_query &= Q(content__icontains=word)
 
     return list(Comment.objects.filter(comment_query & Q(visible=True) & Q(trash=False) & Q(is_message=False)).order_by("submission_date"))
+
+
+def get_count_for_user(id):
+    """
+    Get count for an user.
+    :param id: The user id
+    :type id: int
+    :return: The number of visible message
+    :rtype: int
+    """
+    return Comment.objects.filter(user__pk=id, trash=False, visible=True, is_message=True).only('id').count()

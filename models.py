@@ -143,7 +143,7 @@ class CommentManager(models.Manager):
         """
         Get last comments for the url
         """
-        if count == -1:
+        if count < 0:
             # Get all
             comments = list(self.get_queryset().filter(visible=True, trash=False, url=url, parent=None))
         else:

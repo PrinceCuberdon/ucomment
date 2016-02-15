@@ -5,12 +5,57 @@ Test file for the UComment Framework
 
 from unittest import TestCase
 import datetime
-import locale
 import platform
 
+from django.utils import timezone
+
+import locale
 from django.db.models import QuerySet
 
-from .models import convert_date, CommentPref
+from .models import convert_date, CommentPref, Comment
+import API
+
+comments = [{
+    'url': '/an/url',
+    'content': 'a content 1 motatrouver',
+    'submission_date': timezone.now(),
+    'visible': True
+}, {
+    'url': '/an/url',
+    'content': 'a content 2 motatrouver ',
+    'submission_date': timezone.now()
+}, {
+    'url': '/an/url',
+    'content': 'a content 6',
+    'submission_date': timezone.now(),
+    'visible': True
+}, {
+    'url': '/an/url/2',
+    'content': 'a content 3',
+    'submission_date': timezone.now()
+}, {
+    'url': '/an/url/2',
+    'content': 'a content 4 autremot',
+    'submission_date': timezone.now(),
+    'visible': True
+}, {
+    'url': '/an/url/3',
+    'content': 'a content autremot 7',
+    'submission_date': timezone.now()
+}, {
+    'url': '/an/url/3',
+    'content': 'a content 8',
+    'submission_date': timezone.now()
+}, {
+    'url': '/an/url/3',
+    'content': 'a content 9',
+    'submission_date': timezone.now()
+}, {
+    'url': '/an/url/3',
+    'content': 'a content 10 autremot',
+    'submission_date': timezone.now(),
+    'visible': True
+}]
 
 
 class ConvertDateTest(TestCase):
@@ -53,3 +98,28 @@ class CommentPrefManagerTest(TestCase):
         self.assertTrue(pref.register_ip)
         self.assertTrue(pref.abuse_max, 3)
         self.assertFalse(pref.use_notification)
+
+
+class CommentAPITest(TestCase):
+    def setUp(self):
+        for entry in comments:
+            Comment.objects.create(
+                url=entry['url'],
+                content=entry['content'],
+                submission_date=entry['submission_date'],
+                visible=entry['visible'] if 'visible' in entry else False
+            )
+
+    def tearDown(self):
+        Comment.objects.all().delete()
+
+    def test_get_count(self):
+        self.assertEqual(API.get_count("/an/url"), 2)
+        self.assertEqual(API.get_count("/"), 0)
+
+    def test_get_comments(self):
+        self.assertEqual(len(API.get_comments("/an/url")), 2)
+        self.assertEqual(len(API.get_comments("/an/url", 1)), 1)
+
+    def test_search_words(self):
+        self.assertEqual(len(API.search_words(["motatrouver", "autremot"])), 3)
