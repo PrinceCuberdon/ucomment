@@ -4,34 +4,31 @@
 #
 # (c) Prince Cuberdon 2011 and Later <princecuberdon@bandcochon.fr>
 
-import json
-import os
-import re
 import hashlib
 import time
 import logging
 
+import os
+import re
 from PIL import Image
-
 from django.contrib.auth.decorators import login_required
 from django.template import loader, RequestContext
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.contrib.sites.models import Site
 from django.conf import settings
 from django.db.models import Q
 from django.middleware.csrf import get_token
 from django.shortcuts import render_to_response, render
 from django.views.generic import TemplateView
-from django.views.decorators.csrf import csrf_exempt
+
 from django.utils import timezone
 
 from core.bandcochon.models import Picture
 from .models import Comment, LikeDislike, CommentPref, CommentAbuse
-
 from libs.notification import notification_send, Notification
 from core.common import convert_date
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("bandcochon")
 
 
 class BookView(TemplateView):
@@ -81,11 +78,14 @@ def book_next(request):
 
 def postmessage(request):
     """ Post a message as AJAX """
+
+    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
+    http_referer = request.META.get('HTTP_REFERER', '/')
+
     try:
         if request.method == 'POST':
             if CommentPref.objects.get_preferences().only_registred and not request.user.is_authenticated():
-                logger.error('ucomment.views.postmessage: Try to post when not authenticated. IP address: %s' %
-                         request.META['REMOTE_ADDR'])
+                logger.error('ucomment.views.postmessage: Try to post when not authenticated. IP address: %s' % remote_addr)
                 return HttpResponseBadRequest('')
 
             parent = int(request.POST.get('parent', 0))
@@ -99,14 +99,14 @@ def postmessage(request):
                     referer = "/"
 
                 if not onwallurl and referer == '/' and onwallurl != '/':
-                    referer = request.META['HTTP_REFERER'].replace('http://%s' % Site.objects.get_current().domain, '')
+                    referer = http_referer.replace('http://%s' % Site.objects.get_current().domain, '')
 
                 comment = Comment.objects.create(
                     url=referer,
                     content=content,
                     submission_date=timezone.now(),
                     visible=CommentPref.objects.get_preferences().publish_on_submit,
-                    ip=request.META['REMOTE_ADDR'],
+                    ip=remote_addr,
                     user=request.user,
                     parent=parent
                 )
@@ -118,11 +118,8 @@ def postmessage(request):
                     'knowuser': True,
                     'avatar': request.user.profile.avatar_or_default(),
                     'userid': request.user.id,
-                    'commentcount': Comment.objects.filter(user=request.user,
-                                                           visible=True,
-                                                           moderate=False).only('id').count(),
-                    'pigstiescount': Picture.objects.filter(user=request.user,
-                                                            trash=False).only('id').count(),
+                    'commentcount': Comment.objects.filter(user=request.user, visible=True, moderate=False).only('id').count(),
+                    'pigstiescount': Picture.objects.filter(user=request.user, trash=False).only('id').count(),
                     'content': comment.content,
                     'commentid': comment.id,
                     'user_authenticated': request.user.is_authenticated(),
@@ -136,8 +133,7 @@ def postmessage(request):
 
                 # Send a email to all users
                 if parent is not None:
-                    comments = list(Comment.objects.filter((Q(parent=parent) &
-                                                            ~Q(user=request.user))).only('user__email'))
+                    comments = list(Comment.objects.filter((Q(parent=parent) & ~Q(user=request.user))).only('user__email'))
                     mails = {}
                     for comment in comments:
                         mails[comment.user.email] = ''
@@ -153,41 +149,35 @@ def postmessage(request):
                         notif.send()
 
                 # Send Json
-                return HttpResponse(json.dumps(data, ensure_ascii=False), content_type="application/json")
+                return JsonResponse(data)
         else:
-            logger.error("ucomment.views.postmessage: Not an AJAX call : %s" % request.META['REMOTE_ADDR'])
+            logger.error("ucomment.views.postmessage: Not a POST call : %s" % remote_addr)
 
     except Exception as e:
-        logger.error("ucomment.views.postmessage : %s: IP : %s" % (e, request.META['REMOTE_ADDR']))
+        logger.error("ucomment.views.postmessage : %s: IP : %s" % (e, remote_addr))
 
     return HttpResponseBadRequest('')
 
 
-@csrf_exempt
 def agree(request):
     """ Agree a comment
     @TODO: Translate messages
     """
+    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
+
     try:
         if request.method == 'POST':
             if not request.user.is_authenticated() and CommentPref.objects.get_preferences().only_registred:
-                return HttpResponse(u"""{"success":false, "message":"Vous devez vous enregistrer pour voter"}""",
-                                    content_type="application/json")
+                return JsonResponse({"success": False, "message": "Vous devez vous enregistrer pour voter"})
 
             comment = Comment.objects.get(pk=request.POST['message'])
             if comment.user == request.user:
-                return HttpResponse(u"""{"success":false, "message":"Vous ne pouvez pas voter pour vous même !!"}""",
-                                    content_type="application/json")
+                return JsonResponse({"success": False, "message": "Vous ne pouvez pas voter pour vous même !!"})
 
             if LikeDislike.objects.filter(comment=comment, user=request.user).count() > 0:
-                return HttpResponse(u'''{"success":false, "message":"Vous ne pouvez plus voter pour ce message"}''',
-                                    content_type="application/json")
+                return JsonResponse({"success": False, "message": "Vous ne pouvez plus voter pour ce message"})
 
-            LikeDislike.objects.create(
-                user=request.user,
-                comment=comment,
-                like=True
-            )
+            LikeDislike.objects.create(user=request.user, comment=comment, like=True)
 
             comment.likeit += 1
             comment.save()
@@ -199,8 +189,7 @@ def agree(request):
                                       'username': request.user.username,
                                       'message': comment.content,
                                       'url': comment.get_absolute_url()
-                                  })
-                                  )
+                                  }))
 
             agreeiers = []
             for u in comment.get_agreeiers():
@@ -209,31 +198,32 @@ def agree(request):
                     'avatar': u.user.profile.avatar_or_default()
                 })
 
-            return HttpResponse(u"""{"success": true, "message": "Votre vote a été pris en compte", "agreeiers" : %s}"""
-                                % json.dumps(agreeiers, ensure_ascii=False), content_type="application/json")
+            return JsonResponse({"success": True, "message": "Votre vote a été pris en compte", "agreeiers": agreeiers}, safe=False)
         else:
-            logger.error("ucomment.views.agree: Not an ajax or a post ; %s" % request.META['REMOTE_ADDR'])
-    except Exception as error:
-        logger.error("ucomment.views.agree : %s: IP : %s" % (error, request.META['REMOTE_ADDR']))
+            logger.error("ucomment.views.agree: Not an ajax or a post ; %s" % remote_addr)
 
+    except Exception as error:
+        logger.error("ucomment.views.agree : %s: IP : %s" % (error, remote_addr))
+
+    logger.error("Je ne comprends pas bien")
     return HttpResponseBadRequest('')
 
 
-@csrf_exempt
 def disagree(request):
     """ Disagree a comment """
+    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
+
     try:
         if request.method == 'POST':
             if not request.user.is_authenticated():
-                return HttpResponse("""{"success":false, "message":"Vous devez vous enregistrer pour voter"}""",
-                                    content_type="application/json")
+                return JsonResponse({"success": False, "message": "Vous devez vous enregistrer pour voter"})
 
             comment = Comment.objects.get(pk=request.POST['message'])
             if comment.user == request.user:
-                return HttpResponse("""{"success":false, "message":"Vous ne pouvez pas voter pour vous m&ecirc;me !!"}""", content_type="application/json")
+                return JsonResponse({"success": False, "message": "Vous ne pouvez pas voter pour vous m&ecirc;me !!"})
 
             if LikeDislike.objects.filter(comment=comment, user=request.user).count() > 0:
-                return HttpResponse('''{"success":false, "message":"Vous ne pouvez plus voter pour ce message"}''', content_type="application/json")
+                return JsonResponse({"success": False, "message": "Vous ne pouvez plus voter pour ce message"})
 
             LikeDislike.objects.create(
                 user=request.user,
@@ -257,19 +247,21 @@ def disagree(request):
                     'username': u.user.username,
                     'avatar': u.user.profile.avatar_or_default()
                 })
-            return HttpResponse(u"""{"success": true, "message": "Votre vote a été pris en compte", "disagreeiers" : %s}""" % json.dumps(disagreeiers, ensure_ascii=False),
-                                content_type="application/json")
+            return JsonResponse({"success": True, "message": "Votre vote a été pris en compte", "disagreeiers": disagreeiers}, safe=False)
         else:
-            logger.error("ucomment.views.disagree: Not an ajax or a post ; %s" % request.META['REMOTE_ADDR'])
+            logger.error("ucomment.views.disagree: Not an ajax or a post ; %s" % remote_addr)
 
     except Exception as error:
-        logger.error("ucomment.views.disagree : %s: IP : %s " % (error, request.META['REMOTE_ADDR']))
+        logger.error("ucomment.views.disagree : %s: IP : %s " % (error, remote_addr))
+
     return HttpResponseBadRequest('')
 
 
 @login_required
 def moderate(request):
     """ Moderate a comment """
+    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
+
     try:
         if request.method == 'POST':
             comment = Comment.objects.get(pk=request.POST['rel'])
@@ -287,7 +279,7 @@ def moderate(request):
             comment.save()
             return HttpResponse('')
     except Exception as e:
-        logger.error("ucomment.views.moderate : %s : IP : %s" % (e, request.META['REMOTE_ADDR']))
+        logger.error("ucomment.views.moderate : %s : IP : %s" % (e, remote_addr))
     return HttpResponseBadRequest('')
 
 
@@ -326,11 +318,10 @@ def showlast(request):
 
 
 @login_required
-@csrf_exempt
 def sendphoto(request):
     """ Send a picture, storeit into temp directory """
-    is_html5 = "HTTP_X_REQUESTED_WITH" in request.META
     datarel = 0
+    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
 
     try:
         if request.method == 'POST':
@@ -342,28 +333,11 @@ def sendphoto(request):
                 datarel = keys[0][5:]
                 if not re.match(r'^photo', keys[0]):
                     # Ensure the fieldname (minimal security - not really useful)
-                    if is_html5:
-                        return HttpResponse(json.dumps({
-                            'success': False,
-                            'message': 'An error occured',
-                            'datarel': datarel
-                        }), content_type="application/json")
-                    else:
-                        return HttpResponse("""<script type="text/javascript">window.top.window.imageUploaded""" +
-                                            """('Une erreur est survenue', 0, true);</script>""")
+                    return JsonResponse({'success': False, 'message': 'An error occured', 'datarel': datarel})
 
                 # prepare names
                 if not re.search(r'jpg|jpeg|png|gif', picture_name, re.I):
-                    if is_html5:
-                        return HttpResponse(json.dumps({
-                            'success': False,
-                            'message': 'File type unauthorized',
-                            'datarel': datarel
-                        }), content_type="application/json")
-                    else:
-                        return HttpResponse('''<script type="text/javascript">window.top.window.''' +
-                                            '''imageUploaded("Ce type de fichier n'est pas autoris&eacute;",''' +
-                                            '''%s, true);</script>''' % datarel)
+                    return JsonResponse({'success': False, 'message': 'File type unauthorized', 'datarel': datarel})
 
                 _name, ext = os.path.splitext(picture_name)
                 dest_name = "%s%s" % (hashlib.sha1(request.user.username + str(time.time())).hexdigest(), ext)
@@ -384,25 +358,11 @@ def sendphoto(request):
                     image.save(dest_dir)
 
                 # Send response
-                if is_html5:
-                    return HttpResponse(json.dumps({
-                        'success': True,
-                        'image': relative_path,
-                        'datarel': datarel
-                    }), content_type="application/json")
-                else:
-                    return HttpResponse("""<script type="text/javascript">window.top.window.imageUploaded""" +
-                                        """('%s', %s, false);</script>""" % (relative_path, datarel))
+                return JsonResponse({'success': True, 'image': relative_path, 'datarel': datarel})
         else:
-            logger.error('ucomment.views.sendphoto: Get method : %s' % request.META['REMOTE_ADDR'])
-    except Exception as e:
-        logger.error("ucomment.views.sendphoto: Error : %s : %s" % (e, request.META['REMOTE_ADDR']))
+            logger.error('ucomment.views.sendphoto: Get method : %s' % remote_addr)
 
-    if is_html5:
-        return HttpResponse(json.dumps({
-            'success': False,
-            'message': 'An error occured'
-        }), content_type="application/json")
-    else:
-        return HttpResponse("""<script type="text/javascript">window.top.window.imageUploaded""" +
-                            """('Une erreur est survenue et tout a merdu', %s, true);</script>""" % datarel)
+    except Exception as e:
+        logger.error("ucomment.views.sendphoto: Error : %s : %s" % (e, remote_addr))
+
+    return JsonResponse({'success': False, 'message': 'An error occured'})

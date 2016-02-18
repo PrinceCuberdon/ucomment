@@ -3,11 +3,11 @@
 # (c) Prince Cuberdon 2011 and Later <princecuberdon@bandcochon.fr>
 #
 
+import shutil
+
 import locale
 import re
-import shutil
 import os
-
 from django.utils.translation import ugettext_lazy as _
 from django.db import models, connection
 from django.contrib.auth.models import User as AuthUser
@@ -272,63 +272,65 @@ class Comment(models.Model):
     def save(self, *args, **kwargs):
         """ Replace links and smileys """
         # Does this message have a <a> tag which it means it's just a vote
-        if re.search(r'<a\s+href=.*?</a>', self.content) is None:
-            self.content += " "
+        if not self.pk:
+            if re.search(r'<a\s+href=.*?</a>', self.content) is None:
+                self.content += " "
 
-            # You Tube
-            self.content = re.sub(r'&feature=related', '', self.content)
-            self.content = re.sub(r'[http|https]://www\.youtube\.com/watch\?v=(.{11})', NEW_YOUTUBE_CODE, self.content)
-            self.content = re.sub(r'http://youtu\.be/(.{11})', NEW_YOUTUBE_CODE, self.content)
-            # TODO: Get all youtube param with split("&") and just add v=
-            self.content = re.sub(r'http://www.youtube.com/watch\?feature=endscreen&NR=1&v=(.{11})',
-                                  NEW_YOUTUBE_CODE, self.content)
+                # You Tube
+                self.content = re.sub(r'&feature=related', '', self.content)
+                self.content = re.sub(r'[http|https]://www\.youtube\.com/watch\?v=(.{11})', NEW_YOUTUBE_CODE, self.content)
+                self.content = re.sub(r'http://youtu\.be/(.{11})', NEW_YOUTUBE_CODE, self.content)
+                # TODO: Get all youtube param with split("&") and just add v=
+                self.content = re.sub(r'http://www.youtube.com/watch\?feature=endscreen&NR=1&v=(.{11})',
+                                      NEW_YOUTUBE_CODE, self.content)
 
-            # Daily Motion
-            self.content = re.sub(r'http://www\.dailymotion\.com/video/(\w+)(_.*?\s+)',
-                                  NEW_DAILYMOTION_CODE, self.content)
+                # Daily Motion
+                self.content = re.sub(r'http://www\.dailymotion\.com/video/(\w+)(_.*?\s+)',
+                                      NEW_DAILYMOTION_CODE, self.content)
 
-            # Picts
-            self.content = re.sub(r'(http://.*?\.jpg)\s',
-                                  '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
-                                  self.content, re.I)
-            self.content = re.sub(r'(http://.*?\.png)\s',
-                                  '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
-                                  self.content, re.I)
-            self.content = re.sub(r'(http://.*?\.gif)\s',
-                                  '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
-                                  self.content, re.I)
+                # Picts
+                self.content = re.sub(r'(http://.*?\.jpg)\s',
+                                      '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
+                                      self.content, re.I)
+                self.content = re.sub(r'(http://.*?\.png)\s',
+                                      '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
+                                      self.content, re.I)
+                self.content = re.sub(r'(http://.*?\.gif)\s',
+                                      '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
+                                      self.content, re.I)
 
-            ## remove youtube contents
-            try:
-                for found in re.findall(r'((http|https)://.*?)[\s+|<]', self.content):
-                    if re.search(r'dailymotion|youtu', found[0]):
-                        continue
+                # remove youtube contents
+                try:
+                    for found in re.findall(r'((http|https)://.*?)[\s+|<]', self.content):
+                        if re.search(r'dailymotion|youtu', found[0]):
+                            continue
 
-                    if re.search(r'<img src="%s' % found[0], self.content):
-                        continue
+                        if re.search(r'<img src="%s' % found[0], self.content):
+                            continue
 
-                    self.content = self.content.replace(found[0], '<a href="%s" target="_blank">%s</a>' %
-                                                        (found[0], found[0]))
-            except:
-                # FIXME: The regex crash when self.content contains "(http://address.tld)"
-                pass
+                        self.content = self.content.replace(found[0], '<a href="%s" target="_blank">%s</a>' %
+                                                            (found[0], found[0]))
+                except:
+                    # FIXME: The regex crash when self.content contains "(http://address.tld)"
+                    pass
 
-            # Check upload picture and move them
-            for pict, _ext in re.findall(r'/site_media/temp/(.*?\.(jpg|png|jpeg|gif))\s+', self.content, re.I):
-                old_path = os.path.join(settings.MEDIA_ROOT, settings.BANDCOCHON_CONFIG.Upload.temp, pict)
-                new_path = os.path.join(settings.MEDIA_ROOT, settings.BANDCOCHON_CONFIG.Upload.wall, pict)
-                shutil.move(old_path, new_path)
-                path = '/'.join([settings.MEDIA_URL, settings.BANDCOCHON_CONFIG.Upload.wall, pict]).replace('//', '/')
-                self.content = self.content.replace('/site_media/temp/%s' % pict,
-                                                    '<a href="%s" class="fancyme"><img src="%s" class="book-image" alt="Image from %s" /></a>'
-                                                    % (path, path, self.user.username))
-            # Smileys
-            for smile in SMILEYS:
-                if re.search(smile[0], self.content) is not None:
-                    self.content = re.sub(smile[0],
-                                          '<span class="icon inline-icon smiley-%s"></span>' % smile[1], self.content)
+                # Check upload picture and move them
+                for pict, _ext in re.findall(r'/site_media/temp/(.*?\.(jpg|png|jpeg|gif))\s+', self.content, re.I):
+                    old_path = os.path.join(settings.MEDIA_ROOT, settings.BANDCOCHON_CONFIG.Upload.temp, pict)
+                    new_path = os.path.join(settings.MEDIA_ROOT, settings.BANDCOCHON_CONFIG.Upload.wall, pict)
+                    shutil.move(old_path, new_path)
+                    path = '/'.join([settings.MEDIA_URL, settings.BANDCOCHON_CONFIG.Upload.wall, pict]).replace('//', '/')
+                    self.content = self.content.replace('/site_media/temp/%s' % pict,
+                                                        '<a href="%s" class="fancyme"><img src="%s" class="book-image" alt="Image from %s" /></a>'
+                                                        % (path, path, self.user.username))
+                # Smileys
+                for smile in SMILEYS:
+                    if re.search(smile[0], self.content) is not None:
+                        self.content = re.sub(smile[0],
+                                              '<span class="icon inline-icon smiley-%s"></span>' % smile[1], self.content)
 
-        self.content = linebreaksbr(self.content.strip())
+            self.content = self.content.strip().replace('\n', '<br/>')
+            
         super(Comment, self).save(*args, **kwargs)
 
     class Meta:
@@ -350,9 +352,6 @@ class Comment(models.Model):
         if self.parent is None:
             return self.url
         return self.parent.get_absolute_url()
-
-    # def get_response(self):
-    #     return list(Comment.objects.filter(visible=True, trash=False, parent=self).order_by('submission_date'))
 
     def can_set_abuse(self, user):
         """ Return True if the use is not the Comment__user owner or the
