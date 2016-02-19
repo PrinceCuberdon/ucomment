@@ -4,16 +4,18 @@
 #
 
 import shutil
-
 import locale
 import re
 import os
+import logging
+
 from django.utils.translation import ugettext_lazy as _
 from django.db import models, connection
 from django.contrib.auth.models import User as AuthUser
-from django.template.defaultfilters import linebreaksbr
 from django.conf import settings
 from django.core.cache import cache
+
+logger = logging.getLogger("bandcochon")
 
 
 def convert_date(value):
@@ -273,6 +275,7 @@ class Comment(models.Model):
         """ Replace links and smileys """
         # Does this message have a <a> tag which it means it's just a vote
         if not self.pk:
+            logger.info("New message")
             if re.search(r'<a\s+href=.*?</a>', self.content) is None:
                 self.content += " "
 
@@ -330,7 +333,7 @@ class Comment(models.Model):
                                               '<span class="icon inline-icon smiley-%s"></span>' % smile[1], self.content)
 
             self.content = self.content.strip().replace('\n', '<br/>')
-            
+
         super(Comment, self).save(*args, **kwargs)
 
     class Meta:

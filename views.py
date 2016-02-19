@@ -7,9 +7,9 @@
 import hashlib
 import time
 import logging
-
 import os
 import re
+
 from PIL import Image
 from django.contrib.auth.decorators import login_required
 from django.template import loader, RequestContext
@@ -20,15 +20,14 @@ from django.db.models import Q
 from django.middleware.csrf import get_token
 from django.shortcuts import render_to_response, render
 from django.views.generic import TemplateView
-
 from django.utils import timezone
 
 from core.bandcochon.models import Picture
 from .models import Comment, LikeDislike, CommentPref, CommentAbuse
-from libs.notification import notification_send, Notification
+from notification import notification_send, Notification
 from core.common import convert_date
 
-logger = logging.getLogger("bandcochon")
+L = logging.getLogger("bandcochon")
 
 
 class BookView(TemplateView):
@@ -36,7 +35,7 @@ class BookView(TemplateView):
 
     def get_context_data(self, **kwargs):
         # Call the context
-        logger.info("Load 25 comments for the root URL")
+        L.info("Load 25 comments for the root URL")
 
         context = super(BookView, self).get_context_data(**kwargs)
         context['book_comments'] = Comment.objects.getForUrl('/', 25)
@@ -49,7 +48,7 @@ class BookViewNext(TemplateView):
     template_name = settings.UCOMMENT_NEXT_TEMPLATE
 
     def get(self, request, *args, **kwargs):
-        logger.info("Get next 25 comments for the root url")
+        L.info("Get next 25 comments for the root url")
         count = int(request.GET.get('from', 0)) - 1
         comments = list(Comment.objects.filter(visible=True, trash=False, url='/', parent=None)[count + 1:count + 25])
         return render(request, {
@@ -61,18 +60,20 @@ class BookViewNext(TemplateView):
 
 def book_next(request):
     """ Get next messages on the wall as JSON """
-    logger.info("Get next 25 comments for the root url")
+    L.info("ucomment.views.book_next : Get next 25 comments for the root url")
 
     if request.method == "GET":
         count = int(request.GET.get('from', 0)) - 1
         comments = list(Comment.objects.filter(visible=True, trash=False, url='/', parent=None)[count + 1:count + 25])
+        L.info("ucomment.views.book_next: render the next 25 messages")
+
         return render_to_response('inc/book.html', RequestContext(request, {
             'url': '/',
             'book_comments': list(comments),
             'display_conn': False
         }))
 
-    logger.error("Not a AJAX call or GET method")
+    L.error("ucomment.views.book_next : Not a AJAX call or GET method")
     return HttpResponseBadRequest('')
 
 
@@ -85,7 +86,7 @@ def postmessage(request):
     try:
         if request.method == 'POST':
             if CommentPref.objects.get_preferences().only_registred and not request.user.is_authenticated():
-                logger.error('ucomment.views.postmessage: Try to post when not authenticated. IP address: %s' % remote_addr)
+                L.error('ucomment.views.postmessage: Try to post when not authenticated. IP address: %s' % remote_addr)
                 return HttpResponseBadRequest('')
 
             parent = int(request.POST.get('parent', 0))
@@ -137,12 +138,14 @@ def postmessage(request):
                     mails = {}
                     for comment in comments:
                         mails[comment.user.email] = ''
+
                     req = RequestContext(request, {
                         'username': request.user.username,
                         'message': comment.content,
                         'url': comment.url
                     })
-                    if not settings.IS_LOCAL and not settings.IS_TESTING:
+
+                    if not settings.IS_LOCAL:
                         notif = Notification(settings.BANDCOCHON_CONFIG.EmailTemplates.user_comment)
                         for mail in mails.keys():
                             notif.push(mail, req)
@@ -150,11 +153,13 @@ def postmessage(request):
 
                 # Send Json
                 return JsonResponse(data)
+            else:
+                L.error("ucomment.views.postmessage : Don't have a content message")
         else:
-            logger.error("ucomment.views.postmessage: Not a POST call : %s" % remote_addr)
+            L.error("ucomment.views.postmessage: Not a POST call : %s" % remote_addr)
 
     except Exception as e:
-        logger.error("ucomment.views.postmessage : %s: IP : %s" % (e, remote_addr))
+        L.error("ucomment.views.postmessage : %s: IP : %s" % (e, remote_addr))
 
     return HttpResponseBadRequest('')
 
@@ -168,13 +173,16 @@ def agree(request):
     try:
         if request.method == 'POST':
             if not request.user.is_authenticated() and CommentPref.objects.get_preferences().only_registred:
+                L.error("ucomment.views.agree : Agree and not registred. IP={0}".format(remote_addr))
                 return JsonResponse({"success": False, "message": "Vous devez vous enregistrer pour voter"})
 
             comment = Comment.objects.get(pk=request.POST['message'])
             if comment.user == request.user:
+                L.critical("ucomment.views.agree : Try to agree himself. IP={0}".format(remote_addr))
                 return JsonResponse({"success": False, "message": "Vous ne pouvez pas voter pour vous même !!"})
 
             if LikeDislike.objects.filter(comment=comment, user=request.user).count() > 0:
+                L.error("ucomment.views.agree : Can't vote for this message anymore. IP={0}".format(remote_addr))
                 return JsonResponse({"success": False, "message": "Vous ne pouvez plus voter pour ce message"})
 
             LikeDislike.objects.create(user=request.user, comment=comment, like=True)
@@ -182,7 +190,7 @@ def agree(request):
             comment.likeit += 1
             comment.save()
 
-            if comment.user.profile.accept_notification and not settings.IS_LOCAL and not settings.IS_TESTING:
+            if comment.user.profile.accept_notification and not settings.IS_LOCAL:
                 notification_send(settings.BANDCOCHON_CONFIG.EmailTemplates.user_like,
                                   comment.user.email,
                                   RequestContext(request, {
@@ -198,14 +206,15 @@ def agree(request):
                     'avatar': u.user.profile.avatar_or_default()
                 })
 
+            L.info("ucomment.views.agree : Voting. IP={0}".format(remote_addr))
             return JsonResponse({"success": True, "message": "Votre vote a été pris en compte", "agreeiers": agreeiers}, safe=False)
         else:
-            logger.error("ucomment.views.agree: Not an ajax or a post ; %s" % remote_addr)
+            L.error("ucomment.views.agree: Not an ajax or a post ; %s" % remote_addr)
 
     except Exception as error:
-        logger.error("ucomment.views.agree : %s: IP : %s" % (error, remote_addr))
+        L.error("ucomment.views.agree : %s: IP : %s" % (error, remote_addr))
 
-    logger.error("Je ne comprends pas bien")
+    L.error("Je ne comprends pas bien")
     return HttpResponseBadRequest('')
 
 
@@ -216,13 +225,16 @@ def disagree(request):
     try:
         if request.method == 'POST':
             if not request.user.is_authenticated():
+                L.error("ucomment.views.disagree : Disagree and not registred. IP={0}".format(remote_addr))
                 return JsonResponse({"success": False, "message": "Vous devez vous enregistrer pour voter"})
 
             comment = Comment.objects.get(pk=request.POST['message'])
             if comment.user == request.user:
+                L.critical("ucomment.views.disagree : Try to disaagree himself. IP={0}".format(remote_addr))
                 return JsonResponse({"success": False, "message": "Vous ne pouvez pas voter pour vous m&ecirc;me !!"})
 
             if LikeDislike.objects.filter(comment=comment, user=request.user).count() > 0:
+                L.error("ucomment.views.disagree : Can't vote for this message anymore. IP={0}".format(remote_addr))
                 return JsonResponse({"success": False, "message": "Vous ne pouvez plus voter pour ce message"})
 
             LikeDislike.objects.create(
@@ -234,7 +246,7 @@ def disagree(request):
             comment.dislikeit += 1
             comment.save()
 
-            if comment.user.profile.accept_notification and not settings.IS_LOCAL and not settings.IS_TESTING:
+            if comment.user.profile.accept_notification and not settings.IS_LOCAL:
                 notification_send(settings.BANDCOCHON_CONFIG.EmailTemplates.user_dislike, comment.user.email, RequestContext(request, {
                     'username': request.user.username,
                     'message': comment.content,
@@ -247,12 +259,15 @@ def disagree(request):
                     'username': u.user.username,
                     'avatar': u.user.profile.avatar_or_default()
                 })
+
+            L.info("ucomment.views.disagree : Voting. IP={0}".format(remote_addr))
             return JsonResponse({"success": True, "message": "Votre vote a été pris en compte", "disagreeiers": disagreeiers}, safe=False)
+
         else:
-            logger.error("ucomment.views.disagree: Not an ajax or a post ; %s" % remote_addr)
+            L.error("ucomment.views.disagree: Not an ajax or a post ; %s" % remote_addr)
 
     except Exception as error:
-        logger.error("ucomment.views.disagree : %s: IP : %s " % (error, remote_addr))
+        L.error("ucomment.views.disagree : %s: IP : %s " % (error, remote_addr))
 
     return HttpResponseBadRequest('')
 
@@ -279,7 +294,7 @@ def moderate(request):
             comment.save()
             return HttpResponse('')
     except Exception as e:
-        logger.error("ucomment.views.moderate : %s : IP : %s" % (e, remote_addr))
+        L.error("ucomment.views.moderate : %s : IP : %s" % (e, remote_addr))
     return HttpResponseBadRequest('')
 
 
@@ -296,7 +311,7 @@ def nextcomment(request):
             })
             return HttpResponse(loader.get_template("ucomment/messageblock.html").render(context))
     except Exception as e:
-        logger.error("nextcomment : %s" % e)
+        L.error("nextcomment : %s" % e)
     return HttpResponseBadRequest('')
 
 
@@ -308,11 +323,13 @@ def showlast(request):
             url = request.GET['url']
             context = RequestContext(request, {
                 'commentaries': Comment.objects.filter(url=url, visible=True, trash=False, pk__lte=last)[startat:startat + 15],
-                'ucomment': {'total_count': Comment.objects.filter(url=url, visible=True, trash=False).values_list('pk').count()}
+                'ucomment': {
+                    'total_count': Comment.objects.filter(url=url, visible=True, trash=False).values_list('pk').count()
+                }
             })
             return HttpResponse(loader.get_template('ucomment/messageblock.html').render(context))
     except Exception as e:
-        logger.error("showlast : %s" % e)
+        L.error("showlast : %s" % e)
 
     return HttpResponseBadRequest('')
 
@@ -320,7 +337,6 @@ def showlast(request):
 @login_required
 def sendphoto(request):
     """ Send a picture, storeit into temp directory """
-    datarel = 0
     remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
 
     try:
@@ -333,10 +349,12 @@ def sendphoto(request):
                 datarel = keys[0][5:]
                 if not re.match(r'^photo', keys[0]):
                     # Ensure the fieldname (minimal security - not really useful)
+                    L.critical("ucomment.views.sendphoto: No field 'photo'. IP={0}".format(remote_addr))
                     return JsonResponse({'success': False, 'message': 'An error occured', 'datarel': datarel})
 
                 # prepare names
                 if not re.search(r'jpg|jpeg|png|gif', picture_name, re.I):
+                    L.error("ucomment.views.sendphoto: Not allowed file format. Picture Name = {1} - IP={0}".format(remote_addr, picture_name))
                     return JsonResponse({'success': False, 'message': 'File type unauthorized', 'datarel': datarel})
 
                 _name, ext = os.path.splitext(picture_name)
@@ -358,11 +376,12 @@ def sendphoto(request):
                     image.save(dest_dir)
 
                 # Send response
+                L.info("ucomment.views.sendphoto: Everything goes fine. IP={0}".format(remote_addr))
                 return JsonResponse({'success': True, 'image': relative_path, 'datarel': datarel})
         else:
-            logger.error('ucomment.views.sendphoto: Get method : %s' % remote_addr)
+            L.error('ucomment.views.sendphoto: Other method : %s' % remote_addr)
 
     except Exception as e:
-        logger.error("ucomment.views.sendphoto: Error : %s : %s" % (e, remote_addr))
+        L.error("ucomment.views.sendphoto: Error : %s : %s" % (e, remote_addr))
 
     return JsonResponse({'success': False, 'message': 'An error occured'})
