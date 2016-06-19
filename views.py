@@ -49,7 +49,7 @@ class BookViewNext(TemplateView):
 
     def get(self, request, *args, **kwargs):
         L.info("Get next 25 comments for the root url")
-        count = int(request.GET.get('from', 0)) - 1
+        count = int(request.GET.get('from')) - 1
         comments = list(Comment.objects.filter(visible=True, trash=False, url='/', parent=None)[count + 1:count + 25])
         return render(request, {
             'url': '/',
@@ -80,8 +80,8 @@ def book_next(request):
 def postmessage(request):
     """ Post a message as AJAX """
 
-    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
-    http_referer = request.META.get('HTTP_REFERER', '/')
+    remote_addr = request.META.get('REMOTE_ADDR')
+    http_referer = request.META.get('HTTP_REFERER')
 
     try:
         if request.method == 'POST':
@@ -89,13 +89,13 @@ def postmessage(request):
                 L.error('ucomment.views.postmessage: Try to post when not authenticated. IP address: %s' % remote_addr)
                 return HttpResponseBadRequest('')
 
-            parent = int(request.POST.get('parent', 0))
+            parent = int(request.POST.get('parent'))
             parent = Comment.objects.get(pk=parent) if parent != 0 else None
             content = request.POST['content']
-            onwallurl = request.POST.get('onwallurl', '/')
+            onwallurl = request.POST.get('onwallurl')
 
             if content:
-                referer = request.POST.get('url', None)
+                referer = request.POST.get('url')
                 if not referer:
                     referer = "/"
 
@@ -168,7 +168,7 @@ def agree(request):
     """ Agree a comment
     @TODO: Translate messages
     """
-    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
+    remote_addr = request.META.get('REMOTE_ADDR')
 
     try:
         if request.method == 'POST':
@@ -220,7 +220,7 @@ def agree(request):
 
 def disagree(request):
     """ Disagree a comment """
-    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
+    remote_addr = request.META.get('REMOTE_ADDR')
 
     try:
         if request.method == 'POST':
@@ -275,7 +275,7 @@ def disagree(request):
 @login_required
 def moderate(request):
     """ Moderate a comment """
-    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
+    remote_addr = request.META.get('REMOTE_ADDR')
 
     try:
         if request.method == 'POST':
@@ -337,7 +337,7 @@ def showlast(request):
 @login_required
 def sendphoto(request):
     """ Send a picture, storeit into temp directory """
-    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
+    remote_addr = request.META.get('REMOTE_ADDR')
 
     try:
         if request.method == 'POST':
