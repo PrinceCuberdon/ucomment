@@ -6,10 +6,11 @@
 Public API
 """
 
-import datetime
 from django.utils import timezone
 
 from .models import Comment, CommentPref
+import api
+
 
 def post_message(message, url=None, message_url=None, ip=None):
     """ Post a message not a comment """

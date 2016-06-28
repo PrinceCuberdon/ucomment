@@ -9,6 +9,8 @@ import re
 import os
 import logging
 
+from django.db.models import Q
+from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 from django.db import models, connection
 from django.contrib.auth.models import User as AuthUser
@@ -141,22 +143,35 @@ class CommentManager(models.Manager):
             cache.set('get_for_parent-%s' % parent.url, data)
         return cache
 
-    def getForUrl(self, url, count=-1):
+    def get_for_url(self, url, count=-1):
         """
         Get last comments for the url
+        :param url: The URL for the comment. Use star '*' for all URLs
+        :type url: str
+        :param count: The number of item to retrieve. -1 for all
+        :type count: int
+        :return: The list of comments visible, non trashed and without parents
+        :rtype: list
         """
-        if count < 0:
-            # Get all
-            comments = list(self.get_queryset().filter(visible=True, trash=False, url=url, parent=None))
-        else:
-            comments = list(self.get_queryset().filter(visible=True, trash=False, url=url, parent=None)[:count])
+
+        # Prepare the query
+        query = Q(visible=True, trash=False, parent=None)
+        if url != '*':
+            query &= Q(url=url)
+
+        result = self.get_queryset().filter(query)
+        comments = list(result if count < 0 else result[:count])
 
         # Get and regroup sons
         comments_son = {}
-        for cs in list(self.get_queryset().filter(parent__in=[comment.pk for comment in comments]).order_by('submission_date')):
-            if not cs.parent.pk in comments_son:
-                comments_son[cs.parent.pk] = []
-            comments_son[cs.parent.pk].append(cs)
+        sons = list(self.get_queryset().filter(parent__in=[comment.pk for comment in comments]).order_by('submission_date'))
+
+        def empty_sons(s):
+            """ callback for the map bellow """
+            comments_son[s] = []
+
+        # Prepare the dict comments_son with empty keys then populate
+        map(lambda s_then: comments_son[s_then.parent.pk].append(s_then), map(lambda s: empty_sons(s), sons))
 
         # Attribute sons to parents
         for com in comments:
@@ -166,9 +181,6 @@ class CommentManager(models.Manager):
                 com.get_response = None
 
         return comments
-
-    def get_for_url(self, url, count=-1):
-        return self.getForUrl(url, count)
 
     def serialize(self, url):
         """ Serialize commentaries and responses for a particular URL.
@@ -250,6 +262,84 @@ class CommentManager(models.Manager):
 
         return likeit, dislike_it
 
+    def _convert_message(self, content, convert_text, user):
+        """
+        Convert the message. Seek video, images and link
+
+        :param convert_text: Should we convert or not the message
+        :type convert_text: bool
+        """
+        if convert_text:
+            if re.search(r'<a\s+href=.*?</a>', content) is None:
+                content += " "
+
+                # You Tube
+                content = re.sub(r'&feature=related', '', content)
+                content = re.sub(r'[http|https]://www\.youtube\.com/watch\?v=(.{11})', NEW_YOUTUBE_CODE, content)
+                content = re.sub(r'http://youtu\.be/(.{11})', NEW_YOUTUBE_CODE, content)
+                # TODO: Get all youtube param with split("&") and just add v=
+                content = re.sub(r'http://www.youtube.com/watch\?feature=endscreen&NR=1&v=(.{11})',
+                                 NEW_YOUTUBE_CODE, content)
+
+                # Daily Motion
+                content = re.sub(r'http://www\.dailymotion\.com/video/(\w+)(_.*?\s+)',
+                                 NEW_DAILYMOTION_CODE, content)
+
+                # Picts
+                content = re.sub(r'(http://.*?\.jpg)\s',
+                                 '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
+                                 content, re.I)
+                content = re.sub(r'(http://.*?\.png)\s',
+                                 '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
+                                 content, re.I)
+                content = re.sub(r'(http://.*?\.gif)\s',
+                                 '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
+                                 content, re.I)
+
+                # remove youtube contents
+                try:
+                    for found in re.findall(r'((http|https)://.*?)[\s+|<]', content):
+                        if re.search(r'dailymotion|youtu', found[0]):
+                            continue
+
+                        if re.search(r'<img src="%s' % found[0], content):
+                            continue
+
+                        content = content.replace(found[0], '<a href="%s" target="_blank">%s</a>' %
+                                                  (found[0], found[0]))
+                except:
+                    # FIXME: The regex crash when content contains "(http://address.tld)"
+                    pass
+
+                # Check upload picture and move them
+                for pict, _ext in re.findall(r'/site_media/temp/(.*?\.(jpg|png|jpeg|gif))\s+', content, re.I):
+                    old_path = os.path.join(settings.MEDIA_ROOT, settings.BANDCOCHON_CONFIG.Upload.temp, pict)
+                    new_path = os.path.join(settings.MEDIA_ROOT, settings.BANDCOCHON_CONFIG.Upload.wall, pict)
+                    shutil.move(old_path, new_path)
+                    path = '/'.join([settings.MEDIA_URL, settings.BANDCOCHON_CONFIG.Upload.wall, pict]).replace('//', '/')
+                    content = content.replace('/site_media/temp/%s' % pict,
+                                              '<a href="%s" class="fancyme"><img src="%s" class="book-image" alt="Image from %s" /></a>'
+                                              % (path, path, user.username))
+                # Smileys
+                for smile in SMILEYS:
+                    if re.search(smile[0], content) is not None:
+                        content = re.sub(smile[0],
+                                         '<span class="icon inline-icon smiley-%s"></span>' % smile[1], content)
+
+            content = content.replace('\n', '<br/>')
+
+        return content.strip()
+
+    def post_comment(self, url, message, user, raw_html, ip="127.0.0.1", parent=None, visible=None):
+        return self.get_queryset().create(
+            url=url,
+            content=self._convert_message(message, not raw_html, user),
+            submission_date=timezone.now(),
+            visible=CommentPref.objects.get_preferences().publish_on_submit if visible is None else True,
+            ip=ip, user=user,
+            parent=parent
+        )
+
 
 class Comment(models.Model):
     url = models.CharField(max_length=255, db_index=True,
@@ -271,71 +361,15 @@ class Comment(models.Model):
 
     objects = CommentManager()
 
-    def save(self, *args, **kwargs):
-        """ Replace links and smileys """
-        # Does this message have a <a> tag which it means it's just a vote
-        if not self.pk:
-            logger.info("New message")
-            if re.search(r'<a\s+href=.*?</a>', self.content) is None:
-                self.content += " "
-
-                # You Tube
-                self.content = re.sub(r'&feature=related', '', self.content)
-                self.content = re.sub(r'[http|https]://www\.youtube\.com/watch\?v=(.{11})', NEW_YOUTUBE_CODE, self.content)
-                self.content = re.sub(r'http://youtu\.be/(.{11})', NEW_YOUTUBE_CODE, self.content)
-                # TODO: Get all youtube param with split("&") and just add v=
-                self.content = re.sub(r'http://www.youtube.com/watch\?feature=endscreen&NR=1&v=(.{11})',
-                                      NEW_YOUTUBE_CODE, self.content)
-
-                # Daily Motion
-                self.content = re.sub(r'http://www\.dailymotion\.com/video/(\w+)(_.*?\s+)',
-                                      NEW_DAILYMOTION_CODE, self.content)
-
-                # Picts
-                self.content = re.sub(r'(http://.*?\.jpg)\s',
-                                      '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
-                                      self.content, re.I)
-                self.content = re.sub(r'(http://.*?\.png)\s',
-                                      '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
-                                      self.content, re.I)
-                self.content = re.sub(r'(http://.*?\.gif)\s',
-                                      '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
-                                      self.content, re.I)
-
-                # remove youtube contents
-                try:
-                    for found in re.findall(r'((http|https)://.*?)[\s+|<]', self.content):
-                        if re.search(r'dailymotion|youtu', found[0]):
-                            continue
-
-                        if re.search(r'<img src="%s' % found[0], self.content):
-                            continue
-
-                        self.content = self.content.replace(found[0], '<a href="%s" target="_blank">%s</a>' %
-                                                            (found[0], found[0]))
-                except:
-                    # FIXME: The regex crash when self.content contains "(http://address.tld)"
-                    pass
-
-                # Check upload picture and move them
-                for pict, _ext in re.findall(r'/site_media/temp/(.*?\.(jpg|png|jpeg|gif))\s+', self.content, re.I):
-                    old_path = os.path.join(settings.MEDIA_ROOT, settings.BANDCOCHON_CONFIG.Upload.temp, pict)
-                    new_path = os.path.join(settings.MEDIA_ROOT, settings.BANDCOCHON_CONFIG.Upload.wall, pict)
-                    shutil.move(old_path, new_path)
-                    path = '/'.join([settings.MEDIA_URL, settings.BANDCOCHON_CONFIG.Upload.wall, pict]).replace('//', '/')
-                    self.content = self.content.replace('/site_media/temp/%s' % pict,
-                                                        '<a href="%s" class="fancyme"><img src="%s" class="book-image" alt="Image from %s" /></a>'
-                                                        % (path, path, self.user.username))
-                # Smileys
-                for smile in SMILEYS:
-                    if re.search(smile[0], self.content) is not None:
-                        self.content = re.sub(smile[0],
-                                              '<span class="icon inline-icon smiley-%s"></span>' % smile[1], self.content)
-
-            self.content = self.content.strip().replace('\n', '<br/>')
-
-        super(Comment, self).save(*args, **kwargs)
-
+    # def save(self, *args, **kwargs):
+    #     """ Replace links and smileys """
+    #     # Does this message have a <a> tag which it means it's just a vote
+    #     if not self.pk:
+    #         logger.info("New message")
+    #
+    #
+    #     super(Comment, self).save(*args, **kwargs)
+    #
     class Meta:
         ordering = ("-submission_date",)
         app_label = "ucomment"
