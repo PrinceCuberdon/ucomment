@@ -8,9 +8,9 @@ This prepare for an Micro Service
 """
 from django.db.models import Q
 
-__author__ = 'Prince Cuberdon'
-
 from .models import Comment
+
+__author__ = 'Prince Cuberdon'
 
 
 def get_count(url='/'):
@@ -65,3 +65,21 @@ def get_count_for_user(id):
     :rtype: int
     """
     return Comment.objects.filter(user__pk=id, trash=False, visible=True, is_message=True).only('id').count()
+
+
+def post_comment(user, url, message, raw_html=False):
+    """
+    Post a message on the wall
+
+    :param raw_html: Is the message is in raw HTML
+    :type raw_html: bool
+    :param user: The user that post the messavge
+    :type user: django.contrib.auth.models.User
+    :param url: The message title
+    :type url: str
+    :param message: The message by itself
+    :type message: unicode
+    :return: The comment inserted object
+    :rtype: ucomment.models.Comment
+    """
+    return Comment.objects.post_comment(url=url, message=message, user=user, parent=None, raw_html=raw_html)

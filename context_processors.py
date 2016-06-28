@@ -8,6 +8,6 @@ from .models import CommentPref
 def ucomment(request):
     """ Put into the context, the page path """ 
     return {
-        'PAGE_URI': request.META.get('PATH_INFO', '/'),
+        'PAGE_URI': request.META.get('PATH_INFO'),
         'ucomment_get_preferences': CommentPref.objects.get_preferences()
     }

@@ -13,7 +13,7 @@ import locale
 from django.db.models import QuerySet
 
 from .models import convert_date, CommentPref, Comment
-import API
+import api
 
 comments = [{
     'url': '/an/url',
@@ -114,12 +114,12 @@ class CommentAPITest(TestCase):
         Comment.objects.all().delete()
 
     def test_get_count(self):
-        self.assertEqual(API.get_count("/an/url"), 2)
-        self.assertEqual(API.get_count("/"), 0)
+        self.assertEqual(api.get_count("/an/url"), 2)
+        self.assertEqual(api.get_count("/"), 0)
 
     def test_get_comments(self):
-        self.assertEqual(len(API.get_comments("/an/url")), 2)
-        self.assertEqual(len(API.get_comments("/an/url", 1)), 1)
+        self.assertEqual(len(api.get_comments("/an/url")), 2)
+        self.assertEqual(len(api.get_comments("/an/url", 1)), 1)
 
     def test_search_words(self):
-        self.assertEqual(len(API.search_words(["motatrouver", "autremot"])), 3)
+        self.assertEqual(len(api.search_words(["motatrouver", "autremot"])), 3)

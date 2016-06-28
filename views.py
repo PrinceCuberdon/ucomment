@@ -26,6 +26,7 @@ from core.bandcochon.models import Picture
 from .models import Comment, LikeDislike, CommentPref, CommentAbuse
 from notification import notification_send, Notification
 from core.common import convert_date
+import ucomment
 
 L = logging.getLogger("bandcochon")
 
@@ -38,7 +39,7 @@ class BookView(TemplateView):
         L.info("Load 25 comments for the root URL")
 
         context = super(BookView, self).get_context_data(**kwargs)
-        context['book_comments'] = Comment.objects.getForUrl('/', 25)
+        context['book_comments'] = ucomment.api.get_comments('/', 25)
         context['display_conn'] = True
 
         return context
@@ -49,7 +50,8 @@ class BookViewNext(TemplateView):
 
     def get(self, request, *args, **kwargs):
         L.info("Get next 25 comments for the root url")
-        count = int(request.GET.get('from', 0)) - 1
+
+        count = int(request.GET.get('from')) - 1
         comments = list(Comment.objects.filter(visible=True, trash=False, url='/', parent=None)[count + 1:count + 25])
         return render(request, {
             'url': '/',
@@ -79,87 +81,84 @@ def book_next(request):
 
 def postmessage(request):
     """ Post a message as AJAX """
+    remote_addr = request.META.get('REMOTE_ADDR')
+    http_referer = request.META.get('HTTP_REFERER')
 
-    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
-    http_referer = request.META.get('HTTP_REFERER', '/')
+    L.info("Post a message from {remote} for the page {referer}".format(remote=remote_addr, referer=http_referer))
 
-    try:
-        if request.method == 'POST':
-            if CommentPref.objects.get_preferences().only_registred and not request.user.is_authenticated():
-                L.error('ucomment.views.postmessage: Try to post when not authenticated. IP address: %s' % remote_addr)
-                return HttpResponseBadRequest('')
+    if request.method == 'POST':
+        if CommentPref.objects.get_preferences().only_registred and not request.user.is_authenticated():
+            L.error('ucomment.views.postmessage: Try to post when not authenticated. ')
+            return HttpResponseBadRequest('')
 
-            parent = int(request.POST.get('parent', 0))
-            parent = Comment.objects.get(pk=parent) if parent != 0 else None
-            content = request.POST['content']
-            onwallurl = request.POST.get('onwallurl', '/')
+        parent = int(request.POST.get('parent'))
+        parent = Comment.objects.get(pk=parent) if parent != 0 else None
+        content = request.POST['content']
+        onwallurl = request.POST.get('onwallurl')
 
-            if content:
-                referer = request.POST.get('url', None)
-                if not referer:
-                    referer = "/"
+        if content:
+            referer = request.POST.get('url')
+            if not referer:
+                referer = "/"
 
-                if not onwallurl and referer == '/' and onwallurl != '/':
-                    referer = http_referer.replace('http://%s' % Site.objects.get_current().domain, '')
+            if not onwallurl and referer == '/' and onwallurl != '/':
+                referer = http_referer.replace('http://%s' % Site.objects.get_current().domain, '')
 
-                comment = Comment.objects.create(
-                    url=referer,
-                    content=content,
-                    submission_date=timezone.now(),
-                    visible=CommentPref.objects.get_preferences().publish_on_submit,
-                    ip=remote_addr,
-                    user=request.user,
-                    parent=parent
-                )
+            # comment = Comment.objects.create(
+            comment = Comment.objects.post_comment(
+                url=referer,
+                message=content,
+                raw_html=False,
+                user=request.user,
+                ip=remote_addr,
+                parent=parent
+            )
 
-                # Prepare JSON
-                data = {
-                    'username': request.user.username,
-                    'submission_date': convert_date(timezone.now()),
-                    'knowuser': True,
-                    'avatar': request.user.profile.avatar_or_default(),
-                    'userid': request.user.id,
-                    'commentcount': Comment.objects.filter(user=request.user, visible=True, moderate=False).only('id').count(),
-                    'pigstiescount': Picture.objects.filter(user=request.user, trash=False).only('id').count(),
-                    'content': comment.content,
-                    'commentid': comment.id,
-                    'user_authenticated': request.user.is_authenticated(),
-                    'csrf_token': get_token(request),
-                }
+            # Prepare JSON
+            data = {
+                'username': request.user.username,
+                'submission_date': convert_date(timezone.now()),
+                'knowuser': True,
+                'avatar': request.user.profile.avatar_or_default(),
+                'userid': request.user.id,
+                'commentcount': Comment.objects.filter(user=request.user, visible=True, moderate=False).only('id').count(),
+                'pigstiescount': Picture.objects.filter(user=request.user, trash=False).only('id').count(),
+                'content': comment.content,
+                'commentid': comment.id,
+                'user_authenticated': request.user.is_authenticated(),
+                'csrf_token': get_token(request),
+            }
 
-                if parent is not None:
-                    data['parentid'] = parent.id
-                else:
-                    data['parentid'] = comment.id
-
-                # Send a email to all users
-                if parent is not None:
-                    comments = list(Comment.objects.filter((Q(parent=parent) & ~Q(user=request.user))).only('user__email'))
-                    mails = {}
-                    for comment in comments:
-                        mails[comment.user.email] = ''
-
-                    req = RequestContext(request, {
-                        'username': request.user.username,
-                        'message': comment.content,
-                        'url': comment.url
-                    })
-
-                    if not settings.IS_LOCAL:
-                        notif = Notification(settings.BANDCOCHON_CONFIG.EmailTemplates.user_comment)
-                        for mail in mails.keys():
-                            notif.push(mail, req)
-                        notif.send()
-
-                # Send Json
-                return JsonResponse(data)
+            if parent is not None:
+                data['parentid'] = parent.id
             else:
-                L.error("ucomment.views.postmessage : Don't have a content message")
-        else:
-            L.error("ucomment.views.postmessage: Not a POST call : %s" % remote_addr)
+                data['parentid'] = comment.id
 
-    except Exception as e:
-        L.error("ucomment.views.postmessage : %s: IP : %s" % (e, remote_addr))
+            # Send a email to all users
+            if parent is not None:
+                comments = list(Comment.objects.filter((Q(parent=parent) & ~Q(user=request.user))).only('user__email'))
+                mails = {}
+                for comment in comments:
+                    mails[comment.user.email] = ''
+
+                req = RequestContext(request, {
+                    'username': request.user.username,
+                    'message': comment.content,
+                    'url': comment.url
+                })
+
+                if not settings.IS_LOCAL:
+                    notif = Notification(settings.BANDCOCHON_CONFIG.EmailTemplates.user_comment)
+                    for mail in mails.keys():
+                        notif.push(mail, req)
+                    notif.send()
+
+            # Send Json
+            return JsonResponse(data)
+        else:
+            L.error("ucomment.views.postmessage : Don't have a content message")
+    else:
+        L.error("ucomment.views.postmessage: Not a POST call :")
 
     return HttpResponseBadRequest('')
 
@@ -168,7 +167,8 @@ def agree(request):
     """ Agree a comment
     @TODO: Translate messages
     """
-    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
+    remote_addr = request.META.get('REMOTE_ADDR')
+    L.info("Agree from {remote}".format(remote=remote_addr))
 
     try:
         if request.method == 'POST':
@@ -220,7 +220,8 @@ def agree(request):
 
 def disagree(request):
     """ Disagree a comment """
-    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
+    remote_addr = request.META.get('REMOTE_ADDR')
+    L.info("Disagree from {remote}".format(remote=remote_addr))
 
     try:
         if request.method == 'POST':
@@ -275,7 +276,8 @@ def disagree(request):
 @login_required
 def moderate(request):
     """ Moderate a comment """
-    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
+    remote_addr = request.META.get('REMOTE_ADDR')
+    L.info("Ask moderation from {remote}".format(remote=remote_addr))
 
     try:
         if request.method == 'POST':
@@ -300,6 +302,8 @@ def moderate(request):
 
 def nextcomment(request):
     """ Get next comments """
+    L.info("Get next comment")
+
     try:
         if request.method == 'GET':
             startat = int(request.GET['startat'])
@@ -316,6 +320,8 @@ def nextcomment(request):
 
 
 def showlast(request):
+    L.info("Get the last comment")
+
     try:
         if request.method == 'GET':
             startat = request.GET['startat']
@@ -337,7 +343,8 @@ def showlast(request):
 @login_required
 def sendphoto(request):
     """ Send a picture, storeit into temp directory """
-    remote_addr = request.META.get('REMOTE_ADDR', '0.0.0.0')
+    remote_addr = request.META.get('REMOTE_ADDR')
+    L.info("Send a photo from {remote}".format(remote=remote_addr))
 
     try:
         if request.method == 'POST':
