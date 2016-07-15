@@ -79,7 +79,7 @@ class ConvertDateTest(TestCase):
             except:
                 pass
             else:
-                raise Exception
+                raise Exception()
 
 
 class CommentPrefManagerTest(TestCase):
@@ -122,4 +122,5 @@ class CommentAPITest(TestCase):
         self.assertEqual(len(api.get_comments("/an/url", 1)), 1)
 
     def test_search_words(self):
-        self.assertEqual(len(api.search_words(["motatrouver", "autremot"])), 3)
+        self.assertEqual(len(api.search_words(["motatrouver"])), 1) # Single word
+        self.assertEqual(len(api.search_words(["content", "autremot"])), 2)  # AND words

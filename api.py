@@ -48,12 +48,12 @@ def search_words(words):
     :return: A list of comment
     :rtype list
     """
-    comment_query = Q()
+    comment_query = Q(visible=True, trash=False, is_message=False)
 
     for word in words:
         comment_query &= Q(content__icontains=word)
 
-    return list(Comment.objects.filter(comment_query & Q(visible=True) & Q(trash=False) & Q(is_message=False)).order_by("submission_date"))
+    return list(Comment.objects.filter(comment_query).order_by("submission_date"))
 
 
 def get_count_for_user(id):
