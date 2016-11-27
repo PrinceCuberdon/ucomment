@@ -21,5 +21,5 @@ def comment_count(value):
 @register.simple_tag
 def get_total_comments_count(user):
     """ Get comments count for an user """
-    return ucomment.api.get_count_for_user(user.id)
+    return ucomment.api.get_count_for_user(user)
 
