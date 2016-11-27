@@ -209,10 +209,10 @@ def agree(request):
             L.info("ucomment.views.agree : Voting. IP={0}".format(remote_addr))
             return JsonResponse({"success": True, "message": "Votre vote a été pris en compte", "agreeiers": agreeiers}, safe=False)
         else:
-            L.error("ucomment.views.agree: Not an ajax or a post ; %s" % remote_addr)
+            L.error("ucomment.views.agree: Not an ajax or a post")
 
     except Exception as error:
-        L.error("ucomment.views.agree : %s: IP : %s" % (error, remote_addr))
+        L.error("ucomment.views.agree : {error}: IP : {ip}".format(error=error, ip=remote_addr))
 
     L.error("Je ne comprends pas bien")
     return HttpResponseBadRequest('')
@@ -265,10 +265,10 @@ def disagree(request):
             return JsonResponse({"success": True, "message": "Votre vote a été pris en compte", "disagreeiers": disagreeiers}, safe=False)
 
         else:
-            L.error("ucomment.views.disagree: Not an ajax or a post ; %s" % remote_addr)
+            L.error("ucomment.views.disagree: Not an ajax or a post ")
 
     except Exception as error:
-        L.error("ucomment.views.disagree : %s: IP : %s " % (error, remote_addr))
+        L.error("ucomment.views.disagree : {error}: IP : {ip} ".format(error=error, ip=remote_addr))
 
     return HttpResponseBadRequest('')
 
@@ -296,7 +296,7 @@ def moderate(request):
             comment.save()
             return HttpResponse('')
     except Exception as e:
-        L.error("ucomment.views.moderate : %s : IP : %s" % (e, remote_addr))
+        L.error("ucomment.views.moderate : {error} : IP : {ip}".format(error=e, ip=remote_addr))
     return HttpResponseBadRequest('')
 
 
@@ -315,7 +315,7 @@ def nextcomment(request):
             })
             return HttpResponse(loader.get_template("ucomment/messageblock.html").render(context))
     except Exception as e:
-        L.error("nextcomment : %s" % e)
+        L.error("nextcomment : {error}".format(error=e))
     return HttpResponseBadRequest('')
 
 
@@ -335,7 +335,7 @@ def showlast(request):
             })
             return HttpResponse(loader.get_template('ucomment/messageblock.html').render(context))
     except Exception as e:
-        L.error("showlast : %s" % e)
+        L.error("showlast : {error}".format(error=e))
 
     return HttpResponseBadRequest('')
 
@@ -386,9 +386,9 @@ def sendphoto(request):
                 L.info("ucomment.views.sendphoto: Everything goes fine. IP={0}".format(remote_addr))
                 return JsonResponse({'success': True, 'image': relative_path, 'datarel': datarel})
         else:
-            L.error('ucomment.views.sendphoto: Other method : %s' % remote_addr)
+            L.error('ucomment.views.sendphoto: Other method : {ip}'.format(ip=remote_addr))
 
     except Exception as e:
-        L.error("ucomment.views.sendphoto: Error : %s : %s" % (e, remote_addr))
+        L.error("ucomment.views.sendphoto: Error : {error} : {ip}".format(error=e, ip=remote_addr))
 
     return JsonResponse({'success': False, 'message': 'An error occured'})
