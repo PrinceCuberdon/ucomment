@@ -171,7 +171,14 @@ class CommentManager(models.Manager):
             comments_son[s] = []
 
         # Prepare the dict comments_son with empty keys then populate
-        map(lambda s_then: comments_son[s_then.parent.pk].append(s_then), map(lambda s: empty_sons(s), sons))
+        # map(lambda s_then: comments_son[s_then.parent.pk].append(s_then), map(lambda s: empty_sons(s), sons))
+
+        # Get and regroup sons
+        comments_son = {}
+        for cs in list(self.get_queryset().filter(parent__in=[comment.pk for comment in comments]).order_by('submission_date')):
+            if not cs.parent.pk in comments_son:
+                comments_son[cs.parent.pk] = []
+            comments_son[cs.parent.pk].append(cs)
 
         # Attribute sons to parents
         for com in comments:

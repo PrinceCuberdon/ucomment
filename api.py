@@ -56,15 +56,15 @@ def search_words(words):
     return list(Comment.objects.filter(comment_query).order_by("submission_date"))
 
 
-def get_count_for_user(id):
+def get_count_for_user(username):
     """
     Get count for an user.
-    :param id: The user id
-    :type id: int
+    :param username: The user name
+    :type username: str
     :return: The number of visible message
     :rtype: int
     """
-    return Comment.objects.filter(user__pk=id, trash=False, visible=True, is_message=True).only('id').count()
+    return Comment.objects.filter(user__username=username, trash=False, visible=True).only('id').count()
 
 
 def post_comment(user, url, message, raw_html=False):
