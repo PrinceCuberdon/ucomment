@@ -15,7 +15,6 @@ from django.utils.translation import ugettext_lazy as _
 from django.db import models, connection
 from django.contrib.auth.models import User as AuthUser
 from django.conf import settings
-from django.core.cache import cache
 
 logger = logging.getLogger("bandcochon")
 
@@ -105,8 +104,13 @@ class LikeDislike(models.Model):
         app_label = "ucomment"
 
 
-NEW_YOUTUBE_CODE = '''<div class="videocontainer"><iframe width="560" height="315" src="https://www.youtube.com/embed/\\1" frameborder="0" allowfullscreen></iframe></div>'''
-NEW_DAILYMOTION_CODE = '''<div class="videocontainer"><iframe frameborder="0" width="560" height="315" src="http://www.dailymotion.com/embed/video/\\1"></iframe></div><br>'''
+NEW_YOUTUBE_CODE = '''<div class="videocontainer">
+    <iframe width="560" height="315" src="https://www.youtube.com/embed/\\1" frameborder="0" allowfullscreen></iframe>
+</div>'''
+
+NEW_DAILYMOTION_CODE = '''<div class="videocontainer">
+    <iframe frameborder="0" width="560" height="315" src="http://www.dailymotion.com/embed/video/\\1"></iframe>
+</div><br>'''
 
 SMILEYS = (
     (r'O:\)|O:-\)', 'angel'),
@@ -136,13 +140,6 @@ SMILEYS = (
 
 
 class CommentManager(models.Manager):
-    def getForParent(self, parent):
-        data = cache.get('get_for_parent-%s' % parent.url)
-        if data is None:
-            data = list(super(CommentManager, self).get_queryset().filter(parent=parent, visible=True, trash=False))
-            cache.set('get_for_parent-%s' % parent.url, data)
-        return cache
-
     def get_for_url(self, url, count=-1):
         """
         Get last comments for the url
@@ -164,19 +161,8 @@ class CommentManager(models.Manager):
 
         # Get and regroup sons
         comments_son = {}
-        sons = list(self.get_queryset().filter(parent__in=[comment.pk for comment in comments]).order_by('submission_date'))
-
-        def empty_sons(s):
-            """ callback for the map bellow """
-            comments_son[s] = []
-
-        # Prepare the dict comments_son with empty keys then populate
-        # map(lambda s_then: comments_son[s_then.parent.pk].append(s_then), map(lambda s: empty_sons(s), sons))
-
-        # Get and regroup sons
-        comments_son = {}
         for cs in list(self.get_queryset().filter(parent__in=[comment.pk for comment in comments]).order_by('submission_date')):
-            if not cs.parent.pk in comments_son:
+            if cs.parent.pk not in comments_son:
                 comments_son[cs.parent.pk] = []
             comments_son[cs.parent.pk].append(cs)
 
@@ -188,23 +174,6 @@ class CommentManager(models.Manager):
                 com.get_response = None
 
         return comments
-
-    def serialize(self, url):
-        """ Serialize commentaries and responses for a particular URL.
-        mainly used for json formated communication """
-        result = []
-        for com in list(Comment.objects.filter(url=url, visible=True, trash=False, parent=None)):
-            comment = {
-                'message': com._get_info(),
-                'response': []
-            }
-
-            for resp in list(Comment.objects.filter(visible=True, trash=False, parent=com)):
-                comment['response'].append(resp._get_info())
-
-            result.append(comment)
-
-        return result
 
     def get_with_children(self, url, limit=0):
         """
@@ -281,12 +250,12 @@ class CommentManager(models.Manager):
                 content += " "
 
                 # You Tube
-                content = re.sub(r'&feature=related', '', content)
-                content = re.sub(r'[http|https]://www\.youtube\.com/watch\?v=(.{11})', NEW_YOUTUBE_CODE, content)
-                content = re.sub(r'http://youtu\.be/(.{11})', NEW_YOUTUBE_CODE, content)
+                content = content.replace('&feature=related', '')
+                content = re.sub(r'https://www\.youtube\.com/watch\?v=(.{11})', NEW_YOUTUBE_CODE, content)
+                content = re.sub(r'https://youtu\.be/(.{11})', NEW_YOUTUBE_CODE, content)
+
                 # TODO: Get all youtube param with split("&") and just add v=
-                content = re.sub(r'http://www.youtube.com/watch\?feature=endscreen&NR=1&v=(.{11})',
-                                 NEW_YOUTUBE_CODE, content)
+                content = re.sub(r'https://www.youtube.com/watch\?feature=endscreen&NR=1&v=(.{11})', NEW_YOUTUBE_CODE, content)
 
                 # Daily Motion
                 content = re.sub(r'http://www\.dailymotion\.com/video/(\w+)(_.*?\s+)',
@@ -368,15 +337,6 @@ class Comment(models.Model):
 
     objects = CommentManager()
 
-    # def save(self, *args, **kwargs):
-    #     """ Replace links and smileys """
-    #     # Does this message have a <a> tag which it means it's just a vote
-    #     if not self.pk:
-    #         logger.info("New message")
-    #
-    #
-    #     super(Comment, self).save(*args, **kwargs)
-    #
     class Meta:
         ordering = ("-submission_date",)
         app_label = "ucomment"
