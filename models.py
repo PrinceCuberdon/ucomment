@@ -16,7 +16,7 @@ from django.db import models, connection
 from django.contrib.auth.models import User as AuthUser
 from django.conf import settings
 
-logger = logging.getLogger("bandcochon")
+L = logging.getLogger("bandcochon")
 
 
 def convert_date(value):
@@ -283,9 +283,9 @@ class CommentManager(models.Manager):
 
                         content = content.replace(found[0], '<a href="%s" target="_blank">%s</a>' %
                                                   (found[0], found[0]))
-                except:
+                except Exception as e:
                     # FIXME: The regex crash when content contains "(http://address.tld)"
-                    pass
+                    L.error("An error occured {err}".format(e))
 
                 # Check upload picture and move them
                 for pict, _ext in re.findall(r'/site_media/temp/(.*?\.(jpg|png|jpeg|gif))\s+', content, re.I):
