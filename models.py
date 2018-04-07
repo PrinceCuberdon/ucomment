@@ -8,6 +8,7 @@ import locale
 import re
 import os
 import logging
+import urlparse
 
 from django.db.models import Q
 from django.utils import timezone
@@ -255,7 +256,9 @@ class CommentManager(models.Manager):
                 content = re.sub(r'https://youtu\.be/(.{11})', NEW_YOUTUBE_CODE, content)
 
                 # TODO: Get all youtube param with split("&") and just add v=
-                content = re.sub(r'https://www.youtube.com/watch\?feature=endscreen&NR=1&v=(.{11})', NEW_YOUTUBE_CODE, content)
+                content = re.sub(r'https://www.youtube.com/watch\?feature=endscreen&NR=1&v=(.{11})',
+                                 NEW_YOUTUBE_CODE,
+                                 content)
 
                 # Daily Motion
                 content = re.sub(r'http://www\.dailymotion\.com/video/(\w+)(_.*?\s+)',
@@ -263,13 +266,16 @@ class CommentManager(models.Manager):
 
                 # Picts
                 content = re.sub(r'(http://.*?\.jpg)\s',
-                                 '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
+                                 '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:50%" /></a>'
+                                 '<br class="clear" />',
                                  content, re.I)
                 content = re.sub(r'(http://.*?\.png)\s',
-                                 '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
+                                 '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:50%" /></a>'
+                                 '<br class="clear" />',
                                  content, re.I)
                 content = re.sub(r'(http://.*?\.gif)\s',
-                                 '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:500px" /></a><br class="clear" />',
+                                 '<a href="\\1" class="fancyme"><img src="\\1" style="max-width:50%" />'
+                                 '</a><br class="clear" />',
                                  content, re.I)
 
                 # remove youtube contents
@@ -283,9 +289,9 @@ class CommentManager(models.Manager):
 
                         content = content.replace(found[0], '<a href="%s" target="_blank">%s</a>' %
                                                   (found[0], found[0]))
-                except Exception as e:
+                except Exception as err:
                     # FIXME: The regex crash when content contains "(http://address.tld)"
-                    L.error("An error occured {err}".format(e))
+                    L.error("An error occured {err}".format(err=err))
 
                 # Check upload picture and move them
                 for pict, _ext in re.findall(r'/site_media/temp/(.*?\.(jpg|png|jpeg|gif))\s+', content, re.I):
@@ -350,6 +356,11 @@ class Comment(models.Model):
     def admin_clear_trash(self):
         """ Remove all comments marked as trash """
         Comment.objects.filter(trash=True).delete()
+
+    def save(self, force_insert=False, force_update=False, using=None,
+             update_fields=None):
+        self.url = urlparse.urlparse(self.url).path
+        super(Comment, self).save(force_insert, force_update, using, update_fields)
 
     def get_absolute_url(self):
         """ Get the url on the web site """
