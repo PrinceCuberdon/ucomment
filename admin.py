@@ -30,9 +30,6 @@ class CommentAdmin(admin.ModelAdmin):
     
     list_filter = (
         'url',
-        'submission_date',
-        'user',
-        'parent',
         'visible',
         'moderate',
         'is_message',
@@ -45,9 +42,6 @@ class CommentAdmin(admin.ModelAdmin):
     )
     
     date_hierarchy = 'submission_date'
-
-    #class Media:
-    #    js = TINYMCE_JS
 
 
 admin.site.register(Comment, CommentAdmin)
